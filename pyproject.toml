@@ -1,0 +1,32 @@
+[project]
+name = "constitutional-evidence-rag"
+version = "0.1.0"
+description = "Evidence-grounded RAG system for Indian Constitutional Law (Phase 1: PDF ingestion foundation)"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+
+# Phase 1 scope only: PDF parsing, structured data models, config loading,
+# and environment handling. No retrieval, embedding, LLM, or UI dependencies
+# are added yet — those belong to their own phases.
+dependencies = [
+    "pymupdf>=1.24,<2.0",      # PDF text/metadata extraction (src/.../ingestion/pdf_parser.py)
+    "pydantic>=2.0,<3.0",      # Structured document/metadata models (src/.../common/models.py)
+    "pyyaml>=6.0,<7.0",        # Loads configs/v1.yaml (src/.../common/config.py)
+    "python-dotenv>=1.0,<2.0", # Loads .env for local/dev runs
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0,<9.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/constitutional_evidence_rag"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

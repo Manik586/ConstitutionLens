@@ -1,0 +1,15 @@
+# Minimal single-service setup for Phase 1.
+# No database or UI service yet — those are added in later phases
+# (SQLite is embedded/file-based, and no web UI exists until Phase 7).
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: constitutional-evidence-rag
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./configs:/app/configs

@@ -1,0 +1,19 @@
+# Phase 1 configuration for Constitutional Evidence RAG (SRS v4.1).
+#
+# Only settings actually consumed by src/constitutional_evidence_rag/common
+# are present here. Retrieval, chunking, embedding, and LLM configuration
+# are added in the phases that introduce them (see docs/DECISIONS.md D2) —
+# this file intentionally does not pre-declare sections nothing reads yet.
+
+app:
+  name: constitutional-evidence-rag
+  version: "0.1.0"
+  phase: v1
+
+logging:
+  level: INFO
+  format: "%(asctime)s | %(levelname)s | %(name)s | %(message)s"
+
+paths:
+  data_raw_dir: data/raw
+  data_processed_dir: data/processed
