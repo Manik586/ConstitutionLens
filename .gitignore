@@ -18,3 +18,4 @@ indexes/
 
 # Logs
 *.log
+data/raw/**/*.pdf
