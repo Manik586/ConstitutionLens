@@ -1,0 +1,39 @@
+# Constitutional Evidence RAG
+
+Evidence-grounded RAG system for Indian Constitutional Law. See `docs/SRS.md` (v4.1) and `docs/SRS_v4.2_AMENDMENT.md` for requirements, and `docs/ARCHITECTURE.md` for the system architecture.
+
+**Scope:** V1 answers questions over one curated corpus — the Constitution of India and ~30 selected Supreme Court constitutional judgments. Uploading your own documents and querying personal collections is planned for V2; it is not available in V1.
+
+Status: Phase 1 (corpus + ingestion + parsing) in progress — see `docs/ARCHITECTURE.md` §6.
+
+## Setup
+
+```bash
+pip install -e ".[dev]"
+cp .env.example .env
+pytest
+```
+
+## Ingesting PDFs (Phase 1)
+
+1. Place PDFs under `data/raw/constitution/` and `data/raw/judgments/` (only once corpus licensing is confirmed — `docs/DECISIONS.md` D7).
+2. Copy `data/raw/manifest.example.yaml` to `data/raw/manifest.yaml` and list each PDF with its source type, title, and canonical source URL.
+3. Run:
+
+```bash
+python scripts/ingest_corpus.py
+# or: docker compose run --rm app python scripts/ingest_corpus.py
+```
+
+Output goes to `data/processed/constitutional-core/` (the curated corpus): `metadata.jsonl` (one row per document version) and `documents.jsonl` (page-by-page text, each page with its provenance). Re-running is safe: unchanged documents are skipped, changed ones get a new version under the same document ID.
+
+
+## Chunking (Phase 2)
+
+After ingestion:
+
+```bash
+python scripts/chunk_corpus.py
+```
+
+This writes `data/processed/constitutional-core/chunks.jsonl`: legal-aware chunks (articles, judgment opinions and headed sections) with page ranges and full provenance. Chunk sizes are set in `configs/v1.yaml` under `chunking`.

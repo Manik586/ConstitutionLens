@@ -1,0 +1,174 @@
+# Curated V1 corpus ("constitutional-core") — docs/DECISIONS.md D8, D14, D15.
+# Field rules: data/raw/manifest.example.yaml.
+#
+# BEFORE RUNNING INGESTION, replace every REPLACE-WITH-SOURCE-URL with the URL of
+# the page you downloaded that PDF from (not the path on your computer). Ingestion
+# rejects the placeholder on purpose: source_url fixes each document's permanent ID
+# (D9). Corpus licensing must also be confirmed before ingestion (D7).
+#
+# Titles and dates were read from each PDF's printed title page.
+# Files are expected under data/raw/constitution/ and data/raw/judgments/.
+
+documents:
+  # --- Constitution -----------------------------------------------------------
+  # Official text, Legislative Department, Ministry of Law and Justice; amendments
+  # up to the Constitution (One Hundred and Sixth Amendment) Act, 2023.
+  - file: constitution/constindeng.pdf
+    source_type: constitutional_text
+    title: The Constitution of India (as on 1st May, 2026)
+    source_url: https://www.sci.gov.in/aor-examination/
+    source_date: 2026-05-01
+
+  # --- Supreme Court judgments (Supreme Court Reports), by date ----------------
+  # [1973] Supp. S.C.R. — 13-judge bench; basic structure doctrine.
+  - file: judgments/kesavananda_bharti.pdf
+    source_type: judgment
+    title: His Holiness Kesavananda Bharati Sripadagalvaru v. State of Kerala
+    source_url: https://cdnbbsr.s3waas.gov.in/s3ec0490f1f4972d133619a60c30f3559e/documents/aor_notice_circular/1.pdf
+    source_date: 1973-04-24
+
+  # 7-judge bench; Articles 14, 19 and 21.
+  - file: judgments/maenkagandhi_unionbank.pdf
+    source_type: judgment
+    title: Maneka Gandhi v. Union of India
+    source_url: https://cdnbbsr.s3waas.gov.in/s3ec0490f1f4972d133619a60c30f3559e/documents/aor_notice_circular/2.pdf
+    source_date: 1978-01-25
+
+  # 5-judge bench; Forty-second Amendment, Articles 31C and 368.
+  - file: judgments/minerva.pdf
+    source_type: judgment
+    title: Minerva Mills Ltd. and Ors. v. Union of India and Ors.
+    source_url: https://cdnbbsr.s3waas.gov.in/s3ec0490f1f4972d133619a60c30f3559e/documents/aor_notice_circular/3.pdf
+    source_date: 1980-07-31
+
+  # 5-judge bench; Tenth Schedule (anti-defection). The report prints two dates,
+  # "November 12, 1991 / Feb. 18, 1992"; the later one is used here — confirm it.
+  - file: judgments/kihoto_hollohan.pdf
+    source_type: judgment
+    title: Kihoto Hollohan v. Zachillhu and Others
+    source_url: https://cdnbbsr.s3waas.gov.in/s3ec0490f1f4972d133619a60c30f3559e/documents/aor_notice_circular/6.pdf
+    source_date: 1992-02-18
+
+  # 9-judge bench; Article 356.
+  - file: judgments/sr_bommai.pdf
+    source_type: judgment
+    title: S.R. Bommai and Ors. v. Union of India and Ors.
+    source_url: https://cdnbbsr.s3waas.gov.in/s3ec0490f1f4972d133619a60c30f3559e/documents/aor_notice_circular/8.pdf
+    source_date: 1994-03-11
+
+  # [1996] Supp. 5 S.C.R. — environmental law; Articles 21, 47, 48-A and 51-A(g).
+  - file: judgments/vellore_citizen_welfare.pdf
+    source_type: judgment
+    title: Vellore Citizens Welfare Forum v. Union of India and Ors.
+    source_url: https://cdnbbsr.s3waas.gov.in/s3ec0490f1f4972d133619a60c30f3559e/documents/aor_notice_circular/10.pdf
+    source_date: 1996-08-28
+
+  # [1996] Supp. 10 S.C.R. — 9-judge bench; mainly excise/customs refunds, with
+  # Articles 32, 226 and 265. 278 pages: it will dominate retrieval for those
+  # Articles relative to its constitutional weight (SRS §9) — keep it deliberately.
+  - file: judgments/mefatlal_ind.pdf
+    source_type: judgment
+    title: Mafatlal Industries Ltd. etc. etc. v. Union of India etc. etc.
+    source_url: https://cdnbbsr.s3waas.gov.in/s3ec0490f1f4972d133619a60c30f3559e/documents/aor_notice_circular/12.pdf
+    source_date: 1996-12-19
+
+  # [1997] Supp. 3 S.C.R. — Articles 14, 15, 19(1)(g) and 21; workplace guidelines.
+  - file: judgments/vishaka_ors.pdf
+    source_type: judgment
+    title: Vishaka and Ors. v. State of Rajasthan and Ors.
+    source_url: https://cdnbbsr.s3waas.gov.in/s3ec0490f1f4972d133619a60c30f3559e/documents/aor_notice_circular/13.pdf
+    source_date: 1997-08-13
+
+  # [1999] 1 S.C.R. — Articles 14 and 15; Hindu Minority and Guardianship Act, s. 6(a).
+  - file: judgments/githa_hariharan.pdf
+    source_type: judgment
+    title: Githa Hariharan and Anr. v. Reserve Bank of India and Anr.
+    source_url: https://cdnbbsr.s3waas.gov.in/s3ec0490f1f4972d133619a60c30f3559e/documents/aor_notice_circular/14.pdf
+    source_date: 1999-02-17
+
+  # [2002] 3 S.C.R. — 7-judge bench; Article 21, speedy trial.
+  - file: judgments/p_rama_chandra.pdf
+    source_type: judgment
+    title: P. Rama Chandra Rao v. State of Karnataka
+    source_url: https://cdnbbsr.s3waas.gov.in/s3ec0490f1f4972d133619a60c30f3559e/documents/aor_notice_circular/17.pdf
+    source_date: 2002-04-16
+
+  # [2002] Supp. 3 S.C.R. — 11-judge bench; Article 30, minority educational institutions.
+  - file: judgments/tma_paifoundation.pdf
+    source_type: judgment
+    title: T.M.A. Pai Foundation and Ors. v. State of Karnataka and Ors.
+    source_url: https://cdnbbsr.s3waas.gov.in/s3ec0490f1f4972d133619a60c30f3559e/documents/aor_notice_circular/18.pdf
+    source_date: 2002-10-31
+
+  # 9-judge bench; Ninth Schedule laws after 24 April 1973 are open to basic-
+  # structure review (Articles 31-B, 32, 368).
+  - file: judgments/ircoehlo.pdf
+    source_type: judgment
+    title: I.R. Coelho (Dead) by LRs. v. State of Tamil Nadu
+    source_url: https://cdnbbsr.s3waas.gov.in/s3ec0490f1f4972d133619a60c30f3559e/documents/aor_notice_circular/23.pdf
+    source_date: 2007-01-11
+
+  # [2015] 5 S.C.R. 963 — 2-judge bench; s. 66A, Information Technology Act, 2000
+  # struck down under Article 19(1)(a).
+  - file: judgments/shreyasinghal.pdf
+    source_type: judgment
+    title: Shreya Singhal v. Union of India
+    source_url: https://cdnbbsr.s3waas.gov.in/s3ec0490f1f4972d133619a60c30f3559e/documents/aor_notice_circular/35.pdf
+    source_date: 2015-03-24
+
+  # [2018] 7 S.C.R. 379 — 5-judge bench; s. 377, Indian Penal Code; Articles 14,
+  # 15, 19 and 21.
+  - file: judgments/navtejsingh.pdf
+    source_type: judgment
+    title: Navtej Singh Johar and Ors. v. Union of India thr. Secretary Ministry of Law and Justice
+    source_url: https://cdnbbsr.s3waas.gov.in/s3ec0490f1f4972d133619a60c30f3559e/documents/aor_notice_circular/47.pdf
+    source_date: 2018-09-06
+
+  # [2018] 11 S.C.R. 765 — 5-judge bench; s. 497, Indian Penal Code (adultery);
+  # Articles 14, 15 and 21.
+  - file: judgments/josephshine.pdf
+    source_type: judgment
+    title: Joseph Shine v. Union of India
+    source_url: https://cdnbbsr.s3waas.gov.in/s3ec0490f1f4972d133619a60c30f3559e/documents/aor_notice_circular/50.pdf
+    source_date: 2018-09-27
+
+  # --- Not ingested yet: uncomment only after resolving the note ----------------
+
+  # Indra Sawhney: all 554 pages are images with no text layer, so ingestion rejects
+  # it (NoExtractableTextError, D12) until the OCR fallback (SRS v4.2 FR-02a) is
+  # built — or replace it with a copy that has a text layer. Title and date were
+  # read visually from the scanned title page (9-judge bench; Article 16(4)).
+  # - file: judgments/indra_sawhney.pdf
+  #   source_type: judgment
+  #   title: Indra Sawhney and Ors. etc. etc. v. Union of India and Ors. etc. etc.
+  #   source_url: REPLACE-WITH-SOURCE-URL
+  #   source_date: 1992-11-16
+
+  # Wrong document: this is the 3-judge REFERENCE ORDER of 1994-12-02 ([1994] Supp.
+  # 6 S.C.R. 261, 5 pages), not the 7-judge L. Chandra Kumar judgment of 1997.
+  # Replace it with the 1997 judgment, or keep this order only deliberately.
+  # - file: judgments/lchandrakumar.pdf
+  #   source_type: judgment
+  #   title: L. Chandra Kumar v. Union of India and Others (reference order)
+  #   source_url: REPLACE-WITH-SOURCE-URL
+  #   source_date: 1994-12-02
+
+  # Wrong document: this is a 2-judge INTERIM ORDER of 2004-07-15 reported in
+  # (2004) 8 SCC 139 (a commercial reporter: check licensing, D7), not the 7-judge
+  # P.A. Inamdar judgment of 2005. Its last page also starts an unrelated case
+  # (Hari Ram v. State of U.P.), which would be filed under P.A. Inamdar.
+  # Replace it with the 2005 judgment from the Supreme Court Reports.
+  # - file: judgments/pa_inamdar.pdf
+  #   source_type: judgment
+  #   title: P.A. Inamdar and Others v. State of Maharashtra and Others (interim order)
+  #   source_url: REPLACE-WITH-SOURCE-URL
+  #   source_date: 2004-07-15
+
+  # Out of scope: a criminal-evidence judgment (circumstantial evidence; Article 136
+  # only on interference with findings of fact). SRS §11 excludes non-constitutional
+  # Supreme Court judgments from the curated corpus.
+  # - file: judgments/sharad_bidhi.pdf
+  #   source_type: judgment
+  #   title: Sharad Birdhichand Sarda v. State of Maharashtra
+  #   source_url: REPLACE-WITH-SOURCE-URL
+  #   source_date: 1984-07-17

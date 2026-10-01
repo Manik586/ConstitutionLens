@@ -1,0 +1,37 @@
+# Ingestion manifest (docs/DECISIONS.md D8, D15).
+#
+# This manifest *is* the curated V1 corpus ("constitutional-core"): the
+# Constitution, amendment material, and ~30 selected SC constitutional
+# judgments. It is maintained by the project team; user-provided documents
+# are V2 only (docs/SRS_v4.2_AMENDMENT.md) and never go in this file.
+#
+# Copy to data/raw/manifest.yaml and list every source PDF to ingest.
+# Populating it is gated on corpus-licensing confirmation (D7, RAD §15).
+#
+#   file         path relative to data/raw/ (no absolute paths, no "..")
+#   source_type  constitutional_text | amendment | judgment   (SRS FR-04)
+#   title        human-readable title; for judgments, the case name
+#   source_url   canonical URL of the source; together with source_type
+#                it determines the stable document_id (D9) — keep it
+#                identical across re-ingestion or the document gets a new ID
+#   source_date  YYYY-MM-DD. REQUIRED for judgment (the judgment date) and
+#                constitutional_text (the "as on" date of the text); optional
+#                for amendment. Keeps a 1973 judgment distinguishable from the
+#                current constitutional text it is cited alongside (D14).
+#
+# Re-running ingestion is safe: an entry whose PDF bytes, title and
+# source_date are unchanged is skipped; any change creates a new
+# document_version with the same document_id (D10).
+
+documents:
+  - file: constitution/constitution_of_india.pdf
+    source_type: constitutional_text
+    title: The Constitution of India (as on 2024-01-01)
+    source_url: https://example.org/REPLACE-WITH-CONFIRMED-SOURCE/constitution
+    source_date: 2024-01-01
+
+  - file: judgments/example_judgment.pdf
+    source_type: judgment
+    title: Example Petitioner v. Union of India
+    source_url: https://example.org/REPLACE-WITH-CONFIRMED-SOURCE/judgment-1
+    source_date: 2020-01-15

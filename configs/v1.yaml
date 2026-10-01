@@ -1,0 +1,27 @@
+# V1 configuration for Constitutional Evidence RAG (SRS v4.1 + v4.2 amendment).
+#
+# Only settings actually consumed by the code are present here. Retrieval,
+# embedding, and LLM configuration are added in the phases that introduce
+# them (see docs/DECISIONS.md D2) — this file intentionally does not
+# pre-declare sections nothing reads yet.
+
+app:
+  name: constitutional-evidence-rag
+  version: "0.1.0"
+  phase: v1
+
+logging:
+  level: INFO
+  format: "%(asctime)s | %(levelname)s | %(name)s | %(message)s"
+
+paths:
+  data_raw_dir: data/raw
+  data_processed_dir: data/processed
+
+# Phase 2 (SRS FR-03): target 400-600 tokens, 50-100 token overlap. Overlap
+# applies only inside one structural unit (an article, a judgment section),
+# never across unit boundaries (D16).
+chunking:
+  target_tokens: 500
+  max_tokens: 600
+  overlap_tokens: 75

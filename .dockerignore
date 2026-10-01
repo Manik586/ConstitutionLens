@@ -1,0 +1,17 @@
+.git
+.gitignore
+.env
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+.pytest_cache/
+dist/
+build/
+
+# Not needed inside the Phase 1 build image
+data/
+indexes/
+reports/
+docs/
+tests/

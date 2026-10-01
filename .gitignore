@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+dist/
+build/
+.pytest_cache/
+
+# Environment
+.env
+
+# Generated data artifacts (not source)
+data/raw/*
+data/processed/
+data/db/
+indexes/
+
+# Logs
+*.log
