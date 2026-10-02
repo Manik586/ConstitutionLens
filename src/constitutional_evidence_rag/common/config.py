@@ -2,10 +2,10 @@
 
 Loads configs/v1.yaml and applies environment-variable overrides for the
 handful of settings .env.example exposes (LOG_LEVEL, DATA_RAW_DIR,
-DATA_PROCESSED_DIR). See docs/DECISIONS.md D2 for why this only covers
-the settings of phases built so far: `chunking` arrived with Phase 2;
-retrieval/embedding/LLM sections are added in the phases that introduce
-them, not speculatively here.
+DATA_PROCESSED_DIR, INDEXES_DIR). See docs/DECISIONS.md D2 for why this only
+covers the settings of phases built so far: `chunking` arrived with Phase 2,
+`embedding` and `retrieval` with Phase 3; reranking/LLM sections are added in
+the phases that introduce them, not speculatively here.
 """
 from __future__ import annotations
 
@@ -44,6 +44,7 @@ class PathsSettings(BaseModel):
 
     data_raw_dir: Path
     data_processed_dir: Path
+    indexes_dir: Path = Path("indexes")  # Phase 3; per-corpus subdirectories (D15, FR-05a)
 
 
 class ChunkingSettings(BaseModel):
@@ -66,6 +67,42 @@ class ChunkingSettings(BaseModel):
         return self
 
 
+class EmbeddingSettings(BaseModel):
+    """Dense embedding model (SRS FR-05, §39 "BGE or comparable"; D17).
+
+    `query_instruction` is prepended to queries only (not to chunks), as the
+    BGE v1.5 model card recommends for short-query retrieval.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    model_name: str = "BAAI/bge-small-en-v1.5"
+    query_instruction: str = "Represent this sentence for searching relevant passages: "
+    batch_size: int = Field(default=32, ge=1)
+    device: str = "cpu"
+
+
+class RetrievalSettings(BaseModel):
+    """BM25, dense and hybrid retrieval (SRS FR-05 - FR-07; D18, D19)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    bm25_k1: float = Field(default=1.5, gt=0)
+    bm25_b: float = Field(default=0.75, ge=0, le=1)
+    top_n_bm25: int = Field(default=20, ge=1)  # FR-06 default 20
+    top_n_dense: int = Field(default=20, ge=1)  # FR-05 default 20
+    top_n_hybrid: int = Field(default=20, ge=1)  # candidates handed to Phase 4 reranking (FR-08: 20 -> 5)
+    rrf_k: int = Field(default=60, ge=1)  # FR-07 fixed RRF constant
+    weight_bm25: float = Field(default=1.0, ge=0)
+    weight_dense: float = Field(default=1.0, ge=0)
+
+    @model_validator(mode="after")
+    def _weights(self) -> RetrievalSettings:
+        if self.weight_bm25 == 0 and self.weight_dense == 0:
+            raise ValueError("at least one of weight_bm25 / weight_dense must be > 0")
+        return self
+
+
 class Settings(BaseModel):
     """Top-level, validated configuration for the current phase."""
 
@@ -75,6 +112,8 @@ class Settings(BaseModel):
     logging: LoggingSettings
     paths: PathsSettings
     chunking: ChunkingSettings = ChunkingSettings()
+    embedding: EmbeddingSettings = EmbeddingSettings()
+    retrieval: RetrievalSettings = RetrievalSettings()
 
 
 def _apply_env_overrides(raw: dict[str, Any]) -> dict[str, Any]:
@@ -94,6 +133,8 @@ def _apply_env_overrides(raw: dict[str, Any]) -> dict[str, Any]:
         raw["paths"]["data_raw_dir"] = os.environ["DATA_RAW_DIR"]
     if "DATA_PROCESSED_DIR" in os.environ:
         raw["paths"]["data_processed_dir"] = os.environ["DATA_PROCESSED_DIR"]
+    if "INDEXES_DIR" in os.environ:
+        raw["paths"]["indexes_dir"] = os.environ["INDEXES_DIR"]
 
     return raw
 

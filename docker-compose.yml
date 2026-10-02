@@ -13,3 +13,5 @@ services:
     volumes:
       - ./data:/app/data
       - ./configs:/app/configs
+      - ./indexes:/app/indexes   # Phase 3 BM25/dense indexes (gitignored)
+      - ./models:/app/models     # embedding model cache (HF_HOME)

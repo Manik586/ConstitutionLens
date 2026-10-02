@@ -132,6 +132,12 @@ documents:
     source_url: https://cdnbbsr.s3waas.gov.in/s3ec0490f1f4972d133619a60c30f3559e/documents/aor_notice_circular/50.pdf
     source_date: 2018-09-27
 
+  - file: judgments/ar_antulay.pdf
+    source_type: judgment
+    title: A.R. Antulay v. R.S. Nayak and Anr.
+    source_url: https://cdnbbsr.s3waas.gov.in/s3ec0490f1f4972d133619a60c30f3559e/documents/aor_notice_circular/5.pdf
+    source_date: 1988-04-29
+
   # --- Not ingested yet: uncomment only after resolving the note ----------------
 
   # Indra Sawhney: all 554 pages are images with no text layer, so ingestion rejects

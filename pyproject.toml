@@ -7,13 +7,17 @@ requires-python = ">=3.11"
 license = { text = "MIT" }
 
 # Phase 1 scope only: PDF parsing, structured data models, config loading,
-# and environment handling. No retrieval, embedding, LLM, or UI dependencies
-# are added yet — those belong to their own phases.
+# and environment handling, plus Phase 3 retrieval. Reranking, LLM and UI
+# dependencies are added in their own phases (D2).
 dependencies = [
     "pymupdf>=1.24,<2.0",      # PDF text/metadata extraction (src/.../ingestion/pdf_parser.py)
     "pydantic>=2.0,<3.0",      # Structured document/metadata models (src/.../common/models.py)
     "pyyaml>=6.0,<7.0",        # Loads configs/v1.yaml (src/.../common/config.py)
     "python-dotenv>=1.0,<2.0", # Loads .env for local/dev runs
+    # Phase 3 — retrieval & indexing (D17 - D19)
+    "numpy>=1.24,<3",                 # index arrays (src/.../retrieval/)
+    "faiss-cpu>=1.7.4,<2",            # dense vector index (src/.../retrieval/dense.py)
+    "sentence-transformers>=2.7,<6",  # BGE embeddings; imported lazily (src/.../retrieval/dense.py)
 ]
 
 [project.optional-dependencies]

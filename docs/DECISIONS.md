@@ -212,9 +212,48 @@ Format: **Context → Decision → Consequences → SRS/RAD reference.**
 
 ---
 
+## D17 — Embedding model `BAAI/bge-small-en-v1.5`; cached embeddings; FAISS `IndexFlatIP` (resolves the open embedding-model decision)
+
+**Context:** SRS §39 specifies "BGE or comparable general-purpose model", leaving the choice to Phase 3 (D2). NFR-09 targets a single developer machine, and the corpus is about 5k chunks today, 75–150 judgments in V2.
+
+**Decision:** Default model **`BAAI/bge-small-en-v1.5`** (384 dimensions, CPU-friendly), configured in `embedding.model_name`. `bge-base-en-v1.5` is a one-line change if the evaluation shows small to be too weak. The BGE v1.5 query instruction is prepended to queries only. Vectors are L2-normalized and stored in a FAISS **`IndexFlatIP`**, which gives exact cosine search, is deterministic, and is cheap at this scale (SRS §39 makes a vector service optional). The model sits behind a small `Embedder` interface, so the model is swappable (NFR-05) and tests run without weights. Embeddings are **cached by chunk ID**, and chunk IDs embed a hash of their text (D16), so a rebuild embeds only new or changed chunks. A model or dimension change re-embeds everything, and querying with a different model than the index was built with is refused.
+
+**Consequences:** sentence-transformers (and torch) become dependencies; the Docker image installs the CPU-only torch build first. The first dense build downloads the model (cached in `HF_HOME`; `./models` in docker-compose). **Chunk length:** Phase 2 chunks can reach 600 approximate tokens (FR-03), but BGE reads at most 512 subword tokens, so the tail of the longest chunks is truncated *for the dense vector only*; BM25 indexes the full text. The build environment could not download model weights (Hugging Face returned 403), so the BGE path is implemented to the sentence-transformers API but its first real run is on the developer machine.
+
+**Reference:** SRS §21.2 (FR-05), §39, NFR-05, NFR-09; D2, D16.
+
+---
+
+## D18 — BM25: own numpy implementation, legal-aware tokenizer, per-corpus index files
+
+**Context:** FR-06 requires BM25 with tokenization that keeps references such as "19(2)" intact. The Phase 1 OCR analysis (D15 discussion) found confusions like "19(l)(g)" and "l996" in scanned judgments and recommended handling them in this tokenizer rather than by editing stored text.
+
+**Decision:**
+1. **Tokenizer** (`retrieval/bm25.py`, shared by index and query). NFKC, lower-case, Unicode word runs. References such as `19(2)`, `19(1)(g)` and `243ZD(1)` stay one token and also emit their prefixes (`19`, `19(1)`), so "Article 19" still matches a chunk citing 19(1)(g), while an exact "19(2)" query ranks exact citations highest. OCR digit confusions are normalized on both sides: tokens mixing digits with l/i/o, and a lone l/i in the *first* bracket of a multi-part reference ("19(l)(g)"). A lone "2(l)" is left alone, because lettered clauses exist. There's a small English stopword list and no stemming.
+2. **Index:** an own implementation, Okapi BM25 with idf `ln(1 + (N − df + 0.5)/(df + 0.5))`, over CSR-style numpy postings. This avoids pickled third-party objects, keeps builds byte-for-byte reproducible, and stores raw statistics so `k1`/`b` (config) apply at query time without a rebuild.
+3. **Layout:** `indexes/<corpus_id>/bm25/` per corpus (FR-05a, D15), with `chunk_order.npy` mapping rows to chunk IDs and a chunk fingerprint for staleness detection.
+
+**Consequences:** Ranking is deterministic: query terms are summed in sorted order and ties broken by row. The tokenizer targets English: non-Latin scripts are split at combining marks (only the Constitution's cover page has Hindi). "IT" (information technology) is lost as the stopword "it".
+
+**Reference:** SRS §21.2 (FR-06), FR-05a, NFR-04; D15, D16.
+
+---
+
+## D19 — Hybrid retrieval: weighted RRF over ranks; `RetrievedChunk` is the Phase 4 contract
+
+**Context:** FR-07 requires a deduplicated, reproducible RRF fusion of dense and BM25 results; FR-08 reranks the fused candidates 20 → 5 in Phase 4; Experiments A/B/C need the components separately.
+
+**Decision:** `Retriever` exposes `bm25()`, `dense()` (Experiment A) and `hybrid()` (Experiment B). Hybrid = BM25 top-`top_n_bm25` and dense top-`top_n_dense` fused by **weighted RRF** — `Σ w / (k + rank)`, k = 60, weights default 1.0, all configurable — then cut to `top_n_hybrid` (default 20, the reranker's input). Only ranks are fused: raw BM25 and cosine scores are not on comparable scales, and no metadata enters (FR-SA-05). Ties fall back to the best component rank, then to the row. Every result is a **`RetrievedChunk`** (`common/retrieval.py`): the unmodified Phase 2 `Chunk`, so all provenance survives, plus method, rank, score and per-component ranks and scores (NFR-06), ready for Phase 4 to consume directly. Empty or non-string queries and non-positive `top_n` raise `QueryError`; a query with no BM25-indexable terms returns no BM25 hits and the hybrid falls back to the dense list. Stale or mismatched indexes are refused rather than served.
+
+**Consequences:** Phase 4 can rerank `Retriever.hybrid(q)` directly. Changing `rrf_k`, weights or top-n needs no rebuild.
+
+**Reference:** SRS §21.2 (FR-07, FR-08), §34.1 (Experiments A/B/C), FR-SA-05, NFR-06; D18.
+
+---
+
 ## Open decisions (not yet made — flagged for the next phase)
 
-- **Embedding model choice** (BGE vs. alternative) — deferred to Phase 3 per D2; SRS §39 leaves it as "BGE or comparable."
+- **Locator text for article-number queries (found in Phase 3).** On the real corpus, BM25 does not retrieve the Constitution's own article for queries naming only its number: for "What does Article 21 provide?" (the SRS UC-1 example) and "Article 19(2)", the Constitution's Article 21 / 19 chunk is not in the BM25 top 50, and for "Article 356 failure of constitutional machinery" it ranks 33rd. Judgments mention "Article 21" far more often than the article itself, and the Constitution text never writes "19(2)" (inside Article 19 the clause is just "(2)"). Queries using the article's wording work: "protection of life and personal liberty" ranks Article 21 first. A candidate fix is to index a locator line per chunk ("Article 21 — Protection of life and personal liberty"; case name and opinion author for judgments) in BM25 and the embeddings, without changing stored text. That puts chunk metadata into ranking — locational, not authority or section type, so FR-SA-05 is not engaged — and changes Experiments A–C, so it is left for an explicit decision. How much the dense side (BGE) already recovers is unmeasured until BGE runs.
 - **LLM provider** (hosted vs. local Qwen/Llama/Gemma) — deferred to Phase 5; affects `.env.example`, which will need an API-key variable added at that point, not before.
 - **OCR fallback implementation (now required by SRS v4.2 FR-02a, V1).** *Whether* to OCR is settled; *how* is open: an OCRmyPDF/Tesseract pre-processing step vs. OCR inside `pdf_parser.py`, plus per-page OCR-origin marking. Until then, image-only PDFs are still rejected with `NoExtractableTextError` (D12). Existing OCR text layers (e.g. the SCR scans checked so far) are already used.
 - **Whether FastAPI is introduced at all** — per D3, contingent on whether the UI (Phase 7) ends up needing a separate backend process or can call pipeline functions directly from Streamlit.

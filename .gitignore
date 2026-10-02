@@ -11,11 +11,10 @@ build/
 .env
 
 # Generated data artifacts (not source)
-data/raw/*
 data/processed/
 data/db/
 indexes/
+models/
 
 # Logs
 *.log
-data/raw/**/*.pdf

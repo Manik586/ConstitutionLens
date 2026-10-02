@@ -83,3 +83,32 @@ def test_inconsistent_chunking_settings_raise_config_error(tmp_path, chunking):
 
     with pytest.raises(ConfigError):
         load_settings(config)
+
+
+def test_phase3_settings_from_repo_config():
+    settings = load_settings(Path("configs/v1.yaml"))
+
+    assert settings.paths.indexes_dir == Path("indexes")
+    assert settings.embedding.model_name == "BAAI/bge-small-en-v1.5"
+    r = settings.retrieval
+    assert (r.top_n_bm25, r.top_n_dense, r.top_n_hybrid, r.rrf_k) == (20, 20, 20, 60)
+
+
+def test_env_var_overrides_indexes_dir(monkeypatch):
+    monkeypatch.setenv("INDEXES_DIR", "/tmp/somewhere")
+
+    assert load_settings(Path("configs/v1.yaml")).paths.indexes_dir == Path("/tmp/somewhere")
+
+
+@pytest.mark.parametrize("retrieval", ["{weight_bm25: 0, weight_dense: 0}", "{bm25_b: 1.5}", "{top_n_hybrid: 0}", "{rrf_k: 0}"])
+def test_invalid_retrieval_settings_raise_config_error(tmp_path, retrieval):
+    config = tmp_path / "c.yaml"
+    config.write_text(
+        "app: {name: t, version: '0', phase: v1}\n"
+        "logging: {level: INFO}\n"
+        "paths: {data_raw_dir: r, data_processed_dir: p}\n"
+        f"retrieval: {retrieval}\n"
+    )
+
+    with pytest.raises(ConfigError):
+        load_settings(config)

@@ -37,3 +37,15 @@ python scripts/chunk_corpus.py
 ```
 
 This writes `data/processed/constitutional-core/chunks.jsonl`: legal-aware chunks (articles, judgment opinions and headed sections) with page ranges and full provenance. Chunk sizes are set in `configs/v1.yaml` under `chunking`.
+
+## Retrieval (Phase 3)
+
+After chunking:
+
+```bash
+python scripts/build_indexes.py            # BM25 + BGE embeddings + FAISS -> indexes/constitutional-core/
+python scripts/query.py "What does Article 21 provide?"               # hybrid (BM25 + dense, RRF)
+python scripts/query.py "Article 19(2)" --mode bm25 --top-k 5        # modes: hybrid | bm25 | dense
+```
+
+The first dense build downloads the embedding model (`embedding.model_name` in `configs/v1.yaml`); later builds re-embed only changed chunks. `--only bm25` builds the sparse index without the model. Model, top-n values, RRF constant and weights are all in `configs/v1.yaml`.
