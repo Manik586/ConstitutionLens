@@ -66,9 +66,11 @@ V1 is a complete, independently evaluable system (SRS §41.1: "at the end of Pha
 | Dense retrieval (embedder, cached embeddings, FAISS) | `src/.../retrieval/dense.py` | §21.2 (FR-05) (D17) |
 | BM25 retrieval (legal-aware tokenizer) | `src/.../retrieval/bm25.py` | §21.2 (FR-06) (D18) |
 | RRF fusion; `Retriever` (bm25 / dense / hybrid) | `src/.../retrieval/rrf.py`, `hybrid.py`; result model `common/retrieval.py`; CLIs `scripts/build_indexes.py`, `scripts/query.py` | §21.2 (FR-07) (D19) |
-| Cross-encoder reranking | `src/.../reranking/cross_encoder.py` | §21.2 (FR-08, FR-09) |
-| Generation (evidence-constrained, structured output) | `src/.../generation/llm.py`, `prompts.py`, `claims.py`, `answer.py` | §21.3 (FR-10, FR-11) |
-| Citation linkage | `src/.../citations/citation_builder.py`, `source_formatter.py` | §21.3 (FR-12) |
+| Cross-encoder reranking | `src/.../reranking/cross_encoder.py` (**not built**; FR-08 remains open) | §21.2 (FR-08, FR-09) |
+| Query understanding (provision / interpretation / case / general; article refs; case resolution) | `src/.../query/understanding.py` | Phase 4 as scoped in D20 |
+| Evidence selection (lookups, locator boosts, intent-ordered groups, caps, confidence) | `src/.../reranking/evidence_selector.py`; model `common/evidence.py` | D20 |
+| Generation (interface + deterministic extractive backend; LLM backend open) | `src/.../generation/answer.py`, `pipeline.py`; model `common/answer.py` | §21.3 (FR-10, FR-11, FR-14) (D21) |
+| Citation linkage and grounding validation | `src/.../citations/citation_builder.py`, `src/.../generation/grounding.py` | §21.3 (FR-12), NFR-02 (D22) |
 | Basic Evidence Check | `src/.../evidence/basic_check.py` | §21.3 (FR-13) |
 | Non-advice framing (cross-cutting, not a pipeline stage) | Applied in `generation/prompts.py` and `app/` UI copy | §21.3 (FR-14), §21.4 (FR-17) |
 | UI | `app/streamlit_app.py`, `app/components/` | §21.4 (FR-15–FR-17) |
@@ -127,6 +129,38 @@ query ──► Retriever.load(processed_root, indexes_root, corpus_id, settings
 | **FAISS** | `IndexFlatIP` over L2-normalized vectors = exact cosine search; deterministic; trivial size at V1/V2 scale (SRS §39). |
 | **Hybrid** (D19) | Weighted RRF over ranks only (never raw scores, never metadata); ties broken by best rank, then row. A query with no BM25 terms still returns the dense list. |
 | **Scoring inputs** | Chunk text only. No authority, section type, division, article or any other metadata enters BM25, the embeddings or RRF (Invariant 1, FR-SA-05). |
+
+### 3.4 Answering (Phase 4 as scoped in D20 — D20, D21, D22)
+
+```
+question ─► validate ─► analyze_query            (query/understanding.py: type, Article refs, named case)
+         ─► Retriever.hybrid(pool = 50)          (Phase 3, unchanged)
+         ─► select_evidence                      (reranking/evidence_selector.py)
+               + provision lookup (cited Article's own text) + case lookup (named judgment's headnote)
+               final_score = hybrid RRF + locator boosts (is the Article / is the case / mentions the Article)
+               order = presentation group by intent, then final_score; caps; top_k = 6
+         ─► assess_confidence ──(fails)──► Answer(status=insufficient_evidence, evidence + reasons, no claims)
+         ─► generator.generate                   (generation/answer.py: extractive, verbatim quotes)
+         ─► validate_answer                      (generation/grounding.py: every citation & quote vs evidence)
+         ─► Answer (claims by section, numbered citations, evidence with all scores, notices, disclaimer)
+```
+
+| Query type | Leads with | Then |
+|---|---|---|
+| PROVISION ("What is Article 14?") | the Article's own text (looked up if retrieval missed it) | judgments mentioning it, as supporting evidence |
+| INTERPRETATION ("How has the Court interpreted Article 21?", "… doctrine") | judgment passages | the Article's text in one reserved slot |
+| CASE ("What did X decide?") | the named judgment (its reporter's summary for a bare question) | other judgments discussing it |
+| GENERAL | relevance order | — |
+
+**Invariant 1 in Phase 4:** `final_score` never contains a source-type or authority weight. It is the hybrid RRF score plus *locator* matches only: the chunk is the cited Article (`article_number`), belongs to the named case (`document_id`), or mentions the cited Article in its text. Source type decides only the presentation group, which is labelling/display (SRS §20.2). Experiments A–D and FR-08 consume `Retriever` output, which Phase 4 does not change.
+
+**Grounding:** every answer, from any backend, passes `validate_answer`. Each citation must point to a selected evidence item and equal that item's metadata field for field. Each quote must be verbatim (whitespace-normalized) in the cited chunk. An insufficient-evidence answer carries no claims or citations.
+
+```
+python scripts/query.py "What is Article 21?" --answer                  # grounded, cited answer
+python scripts/query.py "What is Article 21?" --answer --show-evidence  # + every evidence item, its scores and boosts
+python scripts/query.py "What is Article 21?" --answer --json           # Answer JSON
+```
 
 **Build and query:**
 ```
@@ -223,7 +257,7 @@ All writes to the document store / metadata store are versioned (NFR-07); the ev
 
 ## 6. Current Implementation Status
 
-Updated as of Phase 3 (retrieval and indexing). Status values: **Not started / Scaffolded / In progress / Complete**.
+Updated as of Phase 4 (query understanding, evidence selection, grounded answers). Status values: **Not started / Scaffolded / In progress / Complete**.
 
 | Module | Status | Notes |
 |---|---|---|
@@ -236,7 +270,8 @@ Updated as of Phase 3 (retrieval and indexing). Status values: **Not started / S
 | User document collections (upload, collection UI) | Not started | **V2, Phase 15** (FR-COL-01–06); must not be exposed in V1 (Invariant 4) |
 | `src/.../chunking/` (`structure.py`, `legal_chunker.py`) + `common/chunks.py` + `scripts/chunk_corpus.py` | Complete (Phase 2) | D16. Verified on synthetic Constitution/judgment fixtures and on two real SCR judgments (Vishaka, Mafatlal). Not yet run on the real Constitution PDF (not in the corpus yet). `paragraph_number` not detected; `extraction_method` awaits FR-02a |
 | `src/.../retrieval/` + `common/retrieval.py` + `scripts/build_indexes.py`, `scripts/query.py` | Complete (Phase 3) | D17–D19. BM25 built and queried on the real corpus. Dense path tested end to end with a deterministic test embedder only: the BGE model has not yet been run, because model downloads were blocked in the build environment. Open: locator text for article-number queries (DECISIONS open items) |
-| `src/.../reranking/` | Not started | Phase 4 target; consumes `Retriever.hybrid()` output |
+| `src/.../query/`, `reranking/evidence_selector.py`, `citations/`, `generation/` + `common/evidence.py`, `common/answer.py`; `scripts/query.py --answer` | Complete (Phase 4 as scoped in D20) | D20–D22. Extractive generator only (no LLM chosen yet). Tested on fixtures and run on the real corpus with BM25 only, because BGE was unavailable in the build environment |
+| `src/.../reranking/cross_encoder.py` | Not started | SRS FR-08 / Experiment C — still open |
 | `src/.../generation/`, `citations/`, `evidence/` | Not started | Phase 5–6 target |
 | `app/` | Not started | Phase 7 target |
 | `src/.../evaluation/` (retrieval metrics) | Not started | Phase 8 target |

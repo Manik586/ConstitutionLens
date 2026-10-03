@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import yaml
 from dotenv import load_dotenv
@@ -103,6 +103,43 @@ class RetrievalSettings(BaseModel):
         return self
 
 
+class EvidenceSettings(BaseModel):
+    """Evidence selection above retrieval (Phase 4 as scoped in D20).
+
+    Boosts are in RRF units (one rank-1 hit = 1/(rrf_k + 1) ~ 0.016). They are
+    *locator* matches (this chunk is the requested Article / belongs to the named
+    case / mentions the requested Article) — never source-type or authority
+    weights (SRS §20.2, FR-SA-05).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    candidate_pool: int = Field(default=50, ge=1)  # BM25 and dense top-n fused for answering
+    top_k: int = Field(default=6, ge=1)  # evidence items handed to the generator
+    max_per_document: int = Field(default=2, ge=1)  # diversity cap (not applied to a named case)
+    max_constitutional: int = Field(default=2, ge=0)
+    provision_match_boost: float = Field(default=1.0, ge=0)
+    case_match_boost: float = Field(default=1.0, ge=0)
+    article_mention_boost: float = Field(default=0.01, ge=0)
+    min_term_coverage: float = Field(default=0.6, ge=0, le=1)  # best single-item share of the query's content terms
+    min_dense_score: float | None = Field(default=None, ge=-1, le=1)  # optional cosine floor; calibrate per model
+
+
+class GenerationSettings(BaseModel):
+    """Answer generation (SRS FR-10 - FR-12, FR-14; D21). Only the deterministic
+    extractive backend exists until an LLM provider is chosen (open decision)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    backend: Literal["extractive"] = "extractive"
+    sentences_per_item: int = Field(default=2, ge=1)
+    max_quote_chars: int = Field(default=450, ge=80)
+    # Name the judge whose opinion a passage comes from. Off by default: Phase 2 author
+    # detection misses some opinion openings ("BHAGWATI, J.-The ...", "DR. D.Y. CHANDRACHUD,
+    # J."), so the previous author's name would be shown (D21). Enable once that is fixed.
+    show_opinion_author: bool = False
+
+
 class Settings(BaseModel):
     """Top-level, validated configuration for the current phase."""
 
@@ -114,6 +151,8 @@ class Settings(BaseModel):
     chunking: ChunkingSettings = ChunkingSettings()
     embedding: EmbeddingSettings = EmbeddingSettings()
     retrieval: RetrievalSettings = RetrievalSettings()
+    evidence: EvidenceSettings = EvidenceSettings()
+    generation: GenerationSettings = GenerationSettings()
 
 
 def _apply_env_overrides(raw: dict[str, Any]) -> dict[str, Any]:

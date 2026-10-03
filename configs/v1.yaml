@@ -47,3 +47,25 @@ retrieval:
   rrf_k: 60
   weight_bm25: 1.0
   weight_dense: 1.0
+
+# Phase 4 evidence selection (D20). Boosts are locator matches in RRF units,
+# never source-type/authority weights (SRS §20.2, FR-SA-05). Confidence floors
+# trigger an explicit "insufficient evidence" answer instead of a guess.
+evidence:
+  candidate_pool: 50
+  top_k: 6
+  max_per_document: 2
+  max_constitutional: 2
+  provision_match_boost: 1.0
+  case_match_boost: 1.0
+  article_mention_boost: 0.01
+  min_term_coverage: 0.6
+  min_dense_score: null      # set after calibrating on BGE scores (e.g. 0.5)
+
+# Phase 4 answer generation (D21). Extractive = verbatim quotes from evidence
+# only; an LLM backend plugs in behind the same interface once chosen.
+generation:
+  backend: extractive
+  sentences_per_item: 2
+  max_quote_chars: 450
+  show_opinion_author: false   # see D21: Phase 2 author detection has known gaps

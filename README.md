@@ -49,3 +49,13 @@ python scripts/query.py "Article 19(2)" --mode bm25 --top-k 5        # modes: hy
 ```
 
 The first dense build downloads the embedding model (`embedding.model_name` in `configs/v1.yaml`); later builds re-embed only changed chunks. `--only bm25` builds the sparse index without the model. Model, top-n values, RRF constant and weights are all in `configs/v1.yaml`.
+
+## Grounded answers (Phase 4)
+
+```bash
+python scripts/query.py "What is Article 21?" --answer
+python scripts/query.py "How has the Supreme Court interpreted Article 21?" --answer --show-evidence
+python scripts/query.py "What did Kesavananda Bharati establish?" --answer --json
+```
+
+Answers quote retrieved evidence verbatim, keep constitutional text and judicial passages in separate sections, number every citation from the source metadata, and answer "insufficient evidence" rather than guessing. Thresholds, evidence counts and boosts live under `evidence` and `generation` in `configs/v1.yaml`. Without `--answer`, `query.py` behaves exactly as before.

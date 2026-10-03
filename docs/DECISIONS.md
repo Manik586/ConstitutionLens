@@ -251,9 +251,49 @@ Format: **Context → Decision → Consequences → SRS/RAD reference.**
 
 ---
 
+## D20 — "Phase 4": query understanding and evidence selection above retrieval (resolves the locator open decision)
+
+**Context:** Phase 4 was requested as query understanding, source-aware reranking, grounded generation and citations. The SRS numbers phases differently: SRS Phase 4 is the cross-encoder reranker (FR-08, Experiment C), and generation is Phase 5. The request also asked for "source-type boosts", but SRS §20.2, FR-SA-05 and §11 forbid source authority (constitutional text vs judgment) from modifying retrieval or reranking scores outside a separate, labelled experiment. The Phase 3 open item showed the concrete need: for "What is Article 21?" the Constitution's Article 21 was not in BM25's top 50.
+
+**Decision:**
+1. **Query understanding** (`query/understanding.py`) uses deterministic rules and no model, classifying a question as PROVISION, INTERPRETATION, CASE or GENERAL. Rules are checked in the order case, interpretation, provision, general. Article references are extracted generically (14, 19(1)(g), 21A, …). Named cases are resolved only against judgment titles in the corpus registry, using name tokens unique to one case. An "X v. Y" question naming a case that is not in the corpus is flagged, not guessed.
+2. **Evidence selection** (`reranking/evidence_selector.py`) sits *above* `Retriever.hybrid`, which is unchanged. It adds two lookups: the cited Article's own text, by `article_number`, and the named judgment's HELD headnote, else its opening chunk, by `document_id`. **`final_score` = hybrid RRF + locator boosts only.** The boosts are: the chunk *is* the cited Article, *belongs to* the named case, or its text *mentions* the cited Article. These are configurable in RRF units. **No source-type or authority weight enters any score.** Source type sets only the *presentation group* by intent: the provision first for PROVISION, judgments first for INTERPRETATION (with one slot reserved for the provision), the named case first for CASE. This is the labelling and display use §20.2 permits. A per-document cap keeps answers diverse.
+3. Every original score (hybrid, BM25 and dense rank and score), each boost, the final score, term coverage and selection reasons are kept on each `EvidenceItem`, so the selection is auditable.
+4. **Confidence:** the answer is "insufficient evidence" when no evidence is selected, when a named case is not in the corpus, when the best item contains less than `min_term_coverage` of the question's content terms, or when the optional `min_dense_score` floor is set and not met. The dense floor is unset until calibrated on BGE scores.
+
+**Consequences:** Retrieval, Experiments A–D and FR-08 are untouched, because they consume `Retriever` output. The cross-encoder (FR-08) is still open; it would slot in between `Retriever.hybrid` and `select_evidence`. Locator lookups depend on Phase 2 metadata, so Articles that Phase 2 fails to label (368, 4, 174, …) are reported as missing ("No constitutional text for Article 368 was found"), never invented.
+
+**Reference:** SRS §20.2, FR-SA-05, §11, §21.2–§21.3, §41.1; D18, D19; Phase 3 open item (locator text).
+
+---
+
+## D21 — Generation: interface plus a deterministic extractive backend; opinion authors not shown by default
+
+**Context:** FR-10 to FR-14 require generation from the supplied evidence only: cite every claim, say when evidence is insufficient, never frame output as advice. No LLM provider has been chosen (an open decision since D2).
+
+**Decision:** `AnswerGenerator` is the interface; `ExtractiveAnswerGenerator` is the only backend. Every claim is a **verbatim quote**, whitespace-normalized, from one evidence item. It is chosen by overlap with the question's content terms, or, for a bare case question, it is the named judgment's summary. Mid-sentence fragments at chunk boundaries are avoided, and omissions are marked " […] ". Attribution is neutral and built from metadata: "Article N (title) reads", "reporter's headnote", "judgment text". It never says "the Court held", because V1 does not classify holdings (FR-JS-02/03 are V2). Claims are split into Answer / Constitutional source / Judicial interpretation / Other evidence sections. Every answer carries the FR-14/FR-17 disclaimer. **`show_opinion_author` defaults to false.** Phase 2 author detection misses opinion openings such as "BHAGWATI, J.-The …" and "DR. D.Y. CHANDRACHUD, J.", which on the real corpus credited Bhagwati J.'s leading opinion in *Maneka Gandhi* (236 chunks) to Beg C.J. A legal tool should not show a wrong judge's name. The author stays in the citation data for audit.
+
+**Consequences:** Answers are deterministic and cannot paraphrase, so they cannot fabricate, but they read as quotations rather than synthesis, and OCR noise in a quote is shown as is. An LLM backend plugs in behind the same interface and is held to the same grounding check (D22).
+
+**Reference:** SRS §21.3 (FR-10, FR-11, FR-14), FR-17, FR-JS-02, NFR-02; D16.
+
+---
+
+## D22 — Citations from evidence metadata only; mandatory grounding validation
+
+**Context:** FR-12 requires citations that carry document, source type, case or article, page, passage and source URL. The request requires that an answer can never cite something that was not retrieved, and never fabricate a page or a quotation.
+
+**Decision:** A `Citation` is a field-for-field projection of one `EvidenceItem`: title and date from the Phase 1 registry; pages, article, division and author from the Phase 2 chunk. It is numbered in order of first use. The format is `[n] Title (date), source label, PDF p./pp.`. Pages are **physical PDF pages**; printed report pages are shown only where the PDF defines page labels. `validate_answer` runs on every answer before it is returned, from any backend. It rejects any citation not pointing to a selected evidence item; any citation differing from its evidence in any field; unknown or missing citation markers; any quote not verbatim in the cited chunk; and any insufficient-evidence answer that still carries claims.
+
+**Consequences:** A future LLM backend cannot invent a source, page or quotation without the answer being rejected. Citation pages are PDF pages, not SCR pagination, which is stated in the label.
+
+**Reference:** SRS §21.3 (FR-12), §21.5, NFR-02, NFR-03; D11, D19.
+
+---
+
 ## Open decisions (not yet made — flagged for the next phase)
 
-- **Locator text for article-number queries (found in Phase 3).** On the real corpus, BM25 does not retrieve the Constitution's own article for queries naming only its number: for "What does Article 21 provide?" (the SRS UC-1 example) and "Article 19(2)", the Constitution's Article 21 / 19 chunk is not in the BM25 top 50, and for "Article 356 failure of constitutional machinery" it ranks 33rd. Judgments mention "Article 21" far more often than the article itself, and the Constitution text never writes "19(2)" (inside Article 19 the clause is just "(2)"). Queries using the article's wording work: "protection of life and personal liberty" ranks Article 21 first. A candidate fix is to index a locator line per chunk ("Article 21 — Protection of life and personal liberty"; case name and opinion author for judgments) in BM25 and the embeddings, without changing stored text. That puts chunk metadata into ranking — locational, not authority or section type, so FR-SA-05 is not engaged — and changes Experiments A–C, so it is left for an explicit decision. How much the dense side (BGE) already recovers is unmeasured until BGE runs.
-- **LLM provider** (hosted vs. local Qwen/Llama/Gemma) — deferred to Phase 5; affects `.env.example`, which will need an API-key variable added at that point, not before.
+- **Phase 2 labelling gaps (affect Phase 4 answers).** Some Constitution article headings are missed (Articles 4, 65, 174, 325, 368, 369, …: long or footnote-marked titles), and some opinion-author lines are missed ("BHAGWATI, J.-The …", "DR. D.Y. CHANDRACHUD, J."). Phase 4 reports a missing Article rather than inventing it, and hides author names by default (D21). Fixing Phase 2 requires re-chunking and an index rebuild.
+- **LLM provider** (hosted vs. local Qwen/Llama/Gemma). The generation interface exists (D21) with an extractive backend; an LLM backend would add a provider setting (and an API-key variable in `.env.example`) and must pass the same grounding validation (D22).
 - **OCR fallback implementation (now required by SRS v4.2 FR-02a, V1).** *Whether* to OCR is settled; *how* is open: an OCRmyPDF/Tesseract pre-processing step vs. OCR inside `pdf_parser.py`, plus per-page OCR-origin marking. Until then, image-only PDFs are still rejected with `NoExtractableTextError` (D12). Existing OCR text layers (e.g. the SCR scans checked so far) are already used.
 - **Whether FastAPI is introduced at all** — per D3, contingent on whether the UI (Phase 7) ends up needing a separate backend process or can call pipeline functions directly from Streamlit.

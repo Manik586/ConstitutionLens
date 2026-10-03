@@ -112,3 +112,21 @@ def test_invalid_retrieval_settings_raise_config_error(tmp_path, retrieval):
 
     with pytest.raises(ConfigError):
         load_settings(config)
+
+
+def test_phase4_settings_from_repo_config():
+    settings = load_settings(Path("configs/v1.yaml"))
+    e, g = settings.evidence, settings.generation
+
+    assert (e.top_k, e.candidate_pool, e.min_term_coverage, e.min_dense_score) == (6, 50, 0.6, None)
+    assert (g.backend, g.show_opinion_author) == ("extractive", False)
+
+
+@pytest.mark.parametrize("section", ["evidence: {min_term_coverage: 1.5}", "evidence: {top_k: 0}",
+                                     "generation: {backend: gpt}", "evidence: {provision_match_boost: -1}"])
+def test_invalid_phase4_settings_raise_config_error(tmp_path, section):
+    config = tmp_path / "c.yaml"
+    config.write_text("app: {name: t, version: '0', phase: v1}\nlogging: {level: INFO}\n"
+                      f"paths: {{data_raw_dir: r, data_processed_dir: p}}\n{section}\n")
+    with pytest.raises(ConfigError):
+        load_settings(config)
