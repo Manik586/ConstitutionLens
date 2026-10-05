@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from datetime import date
 from enum import Enum
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -23,8 +24,9 @@ DISCLAIMER = (
 
 class AnswerStatus(str, Enum):
     ANSWERED = "answered"
-    PARTIAL = "partial"  # answered, but a requested source was not found (see notices)
+    PARTIAL = "partial"  # answered, but a requested source was not found or a statement was removed (see notices)
     INSUFFICIENT_EVIDENCE = "insufficient_evidence"
+    GENERATION_FAILED = "generation_failed"  # the LLM call failed; no answer, evidence still listed (Phase 5)
 
 
 class AnswerSection(str, Enum):
@@ -32,6 +34,13 @@ class AnswerSection(str, Enum):
     CONSTITUTIONAL_SOURCE = "constitutional_source"
     JUDICIAL_INTERPRETATION = "judicial_interpretation"
     OTHER_EVIDENCE = "other_evidence"
+
+
+class ClaimBasis(str, Enum):
+    """Phase 5: whether a statement is stated by the cited evidence or synthesized from it."""
+
+    EXPLICIT = "explicit"
+    INFERENCE = "inference"
 
 
 class Citation(BaseModel):
@@ -66,6 +75,7 @@ class AnswerClaim(BaseModel):
     statement: str  # rendered text: attribution + quote + citation markers
     quote: str | None = None  # verbatim (whitespace-normalized) span of a cited chunk; " […] " marks omissions
     citation_ids: list[int] = Field(min_length=1)
+    basis: ClaimBasis | None = None  # Phase 5 LLM claims; None for extractive quotes (always explicit)
 
 
 class Answer(BaseModel):
@@ -79,4 +89,21 @@ class Answer(BaseModel):
     evidence: list[EvidenceItem] = Field(default_factory=list)
     notices: list[str] = Field(default_factory=list)
     generator: str
+    # "number": statements cite [1], [2] (extractive, Phase 4). "evidence_id": statements cite the
+    # evidence IDs [E1], [E2] that the LLM was given (Phase 5); citation_id is then the E-number.
+    citation_style: Literal["number", "evidence_id"] = "number"
     disclaimer: str = DISCLAIMER
+
+    def marker(self, citation: Citation) -> str:
+        return f"[{citation.evidence_id}]" if self.citation_style == "evidence_id" else f"[{citation.citation_id}]"
+
+    def summary(self) -> dict:
+        """Compact view: answer text, the citation markers used, and the provenance of each."""
+        return {
+            "status": self.status.value,
+            "answer": "\n".join(c.statement for c in self.claims),
+            "citations": [self.marker(c).strip("[]") for c in self.citations],
+            "evidence_used": [{"citation_id": self.marker(c).strip("[]"), "document_id": c.document_id,
+                               "chunk_id": c.chunk_id, "title": c.title, "pages": [c.page_start, c.page_end],
+                               "source_url": c.source_url} for c in self.citations],
+        }

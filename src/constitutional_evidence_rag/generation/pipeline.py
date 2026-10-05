@@ -3,7 +3,8 @@
     validate query -> analyze_query (query/understanding.py)
     -> Retriever.hybrid with a wider candidate pool (Phase 3, unchanged)
     -> select_evidence (reranking/evidence_selector.py) -> assess_confidence
-    -> generator.generate, or an explicit insufficient-evidence answer
+    -> generator.generate (extractive, or the Phase 5 LLM generator — make_generator),
+       or an explicit insufficient-evidence answer (the generator is then never called)
     -> validate_answer (generation/grounding.py) -> Answer
 """
 from __future__ import annotations
@@ -16,6 +17,8 @@ from constitutional_evidence_rag.common.evidence import EvidenceSet
 from constitutional_evidence_rag.common.models import DocumentMetadata, SourceType
 from constitutional_evidence_rag.generation.answer import AnswerGenerator, ExtractiveAnswerGenerator, insufficient_answer
 from constitutional_evidence_rag.generation.grounding import validate_answer
+from constitutional_evidence_rag.generation.llm import LLMClient, make_llm_client
+from constitutional_evidence_rag.generation.llm_generator import LLMAnswerGenerator
 from constitutional_evidence_rag.ingestion.metadata import load_registry
 from constitutional_evidence_rag.ingestion.pipeline import METADATA_FILENAME, corpus_dir
 from constitutional_evidence_rag.query.understanding import CaseIndex, QueryAnalysis, analyze_query
@@ -32,11 +35,21 @@ def answering_settings(settings: Settings) -> Settings:
     return settings.model_copy(update={"retrieval": retrieval})
 
 
+def make_generator(settings: Settings, llm_client: LLMClient | None = None) -> AnswerGenerator:
+    """generation.backend selects the generator. The LLM client is built from settings.llm unless
+    one is passed in (tests, or a caller that already built it); a misconfiguration raises
+    LLMConfigurationError here, before any retrieval work is done."""
+    if settings.generation.backend == "llm":
+        client = llm_client or make_llm_client(settings.llm)
+        return LLMAnswerGenerator(settings.generation, settings.llm, client)
+    return ExtractiveAnswerGenerator(settings.generation)
+
+
 class AnswerPipeline:
     def __init__(self, retriever: Retriever, registry: dict[tuple[str, int], DocumentMetadata], settings: Settings,
                  generator: AnswerGenerator | None = None):
         self.retriever, self.registry, self.settings = retriever, registry, settings
-        self.generator = generator or ExtractiveAnswerGenerator(settings.generation)
+        self.generator = generator or make_generator(settings)
         current = [m for m in registry.values() if m.replaced_by is None and m.source_type is SourceType.JUDGMENT]
         self.cases = CaseIndex((m.document_id, m.title) for m in current)
 

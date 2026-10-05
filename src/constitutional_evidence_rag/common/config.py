@@ -2,7 +2,8 @@
 
 Loads configs/v1.yaml and applies environment-variable overrides for the
 handful of settings .env.example exposes (LOG_LEVEL, DATA_RAW_DIR,
-DATA_PROCESSED_DIR, INDEXES_DIR). See docs/DECISIONS.md D2 for why this only
+DATA_PROCESSED_DIR, INDEXES_DIR, LLM_PROVIDER, LLM_MODEL, LLM_BASE_URL; the LLM API key
+is read separately, from the variable named by llm.api_key_env). See docs/DECISIONS.md D2 for why this only
 covers the settings of phases built so far: `chunking` arrived with Phase 2,
 `embedding` and `retrieval` with Phase 3; reranking/LLM sections are added in
 the phases that introduce them, not speculatively here.
@@ -131,13 +132,38 @@ class GenerationSettings(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    backend: Literal["extractive"] = "extractive"
+    backend: Literal["extractive", "llm"] = "extractive"  # "llm" = Phase 5 grounded LLM generation (D23-D25)
     sentences_per_item: int = Field(default=2, ge=1)
     max_quote_chars: int = Field(default=450, ge=80)
     # Name the judge whose opinion a passage comes from. Off by default: Phase 2 author
     # detection misses some opinion openings ("BHAGWATI, J.-The ...", "DR. D.Y. CHANDRACHUD,
     # J."), so the previous author's name would be shown (D21). Enable once that is fixed.
     show_opinion_author: bool = False
+    # Phase 5 (LLM backend): what goes into the prompt context.
+    prompt_version: Literal["grounded-v1"] = "grounded-v1"
+    context_max_items: int = Field(default=6, ge=1)  # evidence items sent to the LLM (in Phase 4 order)
+    context_max_chars_per_item: int = Field(default=3000, ge=200)  # longer chunk text is truncated, visibly
+    context_max_total_chars: int = Field(default=18000, ge=1000)  # items beyond this budget are omitted, visibly
+
+
+class LLMSettings(BaseModel):
+    """LLM provider for Phase 5 generation (D23). Off by default: nothing is sent anywhere
+    until a provider is configured. The API key is read from the environment variable
+    named by api_key_env — the key itself never appears in configuration."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    provider: Literal["none", "openai_compatible"] = "none"
+    model: str | None = None
+    base_url: str | None = None  # e.g. https://api.example.com/v1 or http://localhost:11434/v1
+    api_key_env: str = "LLM_API_KEY"
+    require_api_key: bool = True  # set false for local servers that need no key
+    allow_remote: bool = False  # corpus evidence is sent to a non-localhost base_url only if true
+    temperature: float = Field(default=0.0, ge=0, le=2)
+    max_output_tokens: int = Field(default=800, ge=16)
+    timeout_seconds: float = Field(default=60.0, gt=0)
+    json_mode: bool = False  # request response_format=json_object (only if the server supports it)
+    max_retries: int = Field(default=1, ge=0, le=3)  # re-asks after a malformed (non-JSON / off-schema) reply
 
 
 class Settings(BaseModel):
@@ -153,6 +179,7 @@ class Settings(BaseModel):
     retrieval: RetrievalSettings = RetrievalSettings()
     evidence: EvidenceSettings = EvidenceSettings()
     generation: GenerationSettings = GenerationSettings()
+    llm: LLMSettings = LLMSettings()
 
 
 def _apply_env_overrides(raw: dict[str, Any]) -> dict[str, Any]:
@@ -174,6 +201,9 @@ def _apply_env_overrides(raw: dict[str, Any]) -> dict[str, Any]:
         raw["paths"]["data_processed_dir"] = os.environ["DATA_PROCESSED_DIR"]
     if "INDEXES_DIR" in os.environ:
         raw["paths"]["indexes_dir"] = os.environ["INDEXES_DIR"]
+    for env, key in (("LLM_PROVIDER", "provider"), ("LLM_MODEL", "model"), ("LLM_BASE_URL", "base_url")):
+        if os.environ.get(env):
+            raw.setdefault("llm", {})[key] = os.environ[env]
 
     return raw
 

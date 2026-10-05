@@ -59,3 +59,24 @@ python scripts/query.py "What did Kesavananda Bharati establish?" --answer --jso
 ```
 
 Answers quote retrieved evidence verbatim, keep constitutional text and judicial passages in separate sections, number every citation from the source metadata, and answer "insufficient evidence" rather than guessing. Thresholds, evidence counts and boosts live under `evidence` and `generation` in `configs/v1.yaml`. Without `--answer`, `query.py` behaves exactly as before.
+
+## Grounded LLM answers (Phase 5)
+
+Phase 5 writes the answer with an LLM, from Phase 4's evidence only:
+
+```
+Final Evidence (E1..En) + Query -> Context Builder -> LLM -> Grounded Answer -> Citation Validation
+```
+
+1. Configure the provider in `configs/v1.yaml` (`llm:`) or with environment variables. Generation is **off by default** (`provider: none`).
+   - Local model, nothing leaves your machine: `LLM_PROVIDER=openai_compatible`, `LLM_MODEL=qwen2.5:7b-instruct`, `LLM_BASE_URL=http://localhost:11434/v1` (Ollama), and `llm.require_api_key: false`.
+   - Hosted model: also set `llm.allow_remote: true` (explicit consent to send corpus passages) and put the key in `.env` as `LLM_API_KEY=...`. Never commit it.
+2. Run:
+
+```bash
+python scripts/query.py "What protections are provided for personal liberty?" --mode hybrid --top-k 5 --generate
+python scripts/query.py "What does Article 21 provide?" --generate --show-evidence
+python scripts/query.py "What does Article 21 provide?" --generate --json
+```
+
+Answers cite evidence as `[E1]`, `[E2]`. Every citation's source, pages and chunk come from the retrieved evidence, never from the model; statements with unknown citations or inexact quotations are removed and reported. If evidence is weak, or the model call fails, you get an explicit "insufficient evidence" or "generation failed" result with the evidence listed, never an answer from the model's own knowledge. Retrieval-only (`--mode bm25|dense|hybrid` without `--generate`) and the extractive `--answer` work exactly as before.

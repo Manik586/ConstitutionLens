@@ -69,3 +69,26 @@ generation:
   sentences_per_item: 2
   max_quote_chars: 450
   show_opinion_author: false   # see D21: Phase 2 author detection has known gaps
+  # Phase 5 — LLM backend (D23-D25). `query.py --generate` uses it regardless of `backend`.
+  prompt_version: grounded-v1
+  context_max_items: 6           # evidence items sent to the LLM, in Phase 4 order
+  context_max_chars_per_item: 3000
+  context_max_total_chars: 18000
+
+# Phase 5 LLM provider (D23). provider: none = generation disabled, nothing is sent
+# anywhere. The API key is read from the environment variable named in api_key_env
+# (put it in .env, never here). Corpus evidence goes to a non-localhost base_url only
+# when allow_remote is true. Env overrides: LLM_PROVIDER, LLM_MODEL, LLM_BASE_URL.
+
+llm:
+  provider: none
+  model: gemini-2.5-flash-lite
+  base_url: https://generativelanguage.googleapis.com/v1beta/openai/
+  api_key_env: LLM_API_KEY
+  require_api_key: true
+  allow_remote: false
+  temperature: 0.0
+  max_output_tokens: 2048
+  timeout_seconds: 60
+  json_mode: false
+  max_retries: 1

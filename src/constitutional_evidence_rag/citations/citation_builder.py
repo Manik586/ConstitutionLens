@@ -53,11 +53,12 @@ def format_pages(citation: Citation) -> str:
     return pdf
 
 
-def format_citation(citation: Citation, show_author: bool = False) -> str:
+def format_citation(citation: Citation, show_author: bool = False, label: str | None = None) -> str:
     title = citation.title
     if citation.source_type is SourceType.JUDGMENT and citation.source_date:
         title += f" ({citation.source_date.day} {citation.source_date:%B %Y})"
-    return f"[{citation.citation_id}] {title}, {source_label(citation, show_author)}, {format_pages(citation)}"
+    label = label or f"[{citation.citation_id}]"
+    return f"{label} {title}, {source_label(citation, show_author)}, {format_pages(citation)}"
 
 
 class CitationRegistry:

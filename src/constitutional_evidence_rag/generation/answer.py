@@ -22,7 +22,7 @@ import re
 from typing import Protocol
 
 from constitutional_evidence_rag.citations.citation_builder import CitationRegistry, format_citation, source_label
-from constitutional_evidence_rag.common.answer import Answer, AnswerClaim, AnswerSection, AnswerStatus
+from constitutional_evidence_rag.common.answer import Answer, AnswerClaim, AnswerSection, AnswerStatus, ClaimBasis
 from constitutional_evidence_rag.common.config import GenerationSettings
 from constitutional_evidence_rag.common.evidence import EvidenceItem, EvidenceRole, EvidenceSet, QueryType
 from constitutional_evidence_rag.common.models import SourceType
@@ -167,22 +167,25 @@ _HEADINGS = [(AnswerSection.ANSWER, "Answer"), (AnswerSection.CONSTITUTIONAL_SOU
 def render_text(answer: Answer, show_evidence: bool = False, show_author: bool = False) -> str:
     lines = [f"Query type: {answer.query_type.value} | status: {answer.status.value} | generator: {answer.generator}", ""]
     if answer.status is AnswerStatus.INSUFFICIENT_EVIDENCE:
-        lines += ["Answer:", "  The available evidence is insufficient to answer this question.", ""]
+        lines += ["Answer:", "  The available evidence in the corpus is insufficient to answer this question reliably.", ""]
+    elif answer.status is AnswerStatus.GENERATION_FAILED:
+        lines += ["Answer:", "  No answer was generated (see Notes). The retrieved evidence is listed below for inspection.", ""]
+    quoted = answer.citation_style == "number"  # extractive answers are verbatim quotations
     for section, heading in _HEADINGS:
         claims = [c for c in answer.claims if c.section is section]
         if claims:
-            lines.append(f"{heading}:")
-            lines += [f"  {c.statement}" for c in claims]
+            lines.append(f"{heading if quoted else heading.replace(' (quoted passages)', '')}:")
+            lines += [f"  {'(inference) ' if c.basis is ClaimBasis.INFERENCE else ''}{c.statement}" for c in claims]
             lines.append("")
     if answer.citations:
         lines.append("Citations:")
-        lines += [f"  {format_citation(c, show_author)}" for c in answer.citations]
+        lines += [f"  {format_citation(c, show_author, answer.marker(c))}" for c in answer.citations]
         lines.append("")
     if answer.notices:
         lines.append("Notes:")
         lines += [f"  - {n}" for n in answer.notices]
         lines.append("")
-    if show_evidence or answer.status is AnswerStatus.INSUFFICIENT_EVIDENCE:
+    if show_evidence or answer.status in (AnswerStatus.INSUFFICIENT_EVIDENCE, AnswerStatus.GENERATION_FAILED):
         lines.append("Evidence considered (final score | hybrid rank/score | bm25 rank | dense rank | boosts):")
         for e in answer.evidence:
             hybrid = f"#{e.hybrid_rank} {e.hybrid_score:.4f}" if e.hybrid_rank else "lookup"

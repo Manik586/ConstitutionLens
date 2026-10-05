@@ -17,7 +17,8 @@ import pytest
 from constitutional_evidence_rag.common import config as config_module
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-_OVERRIDE_VARS = ("LOG_LEVEL", "DATA_RAW_DIR", "DATA_PROCESSED_DIR", "INDEXES_DIR", "CONFIG_PATH")
+_OVERRIDE_VARS = ("LOG_LEVEL", "DATA_RAW_DIR", "DATA_PROCESSED_DIR", "INDEXES_DIR", "CONFIG_PATH",
+                  "LLM_PROVIDER", "LLM_MODEL", "LLM_BASE_URL", "LLM_API_KEY")
 
 
 @pytest.fixture(autouse=True)

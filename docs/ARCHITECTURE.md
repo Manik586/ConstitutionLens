@@ -70,6 +70,9 @@ V1 is a complete, independently evaluable system (SRS §41.1: "at the end of Pha
 | Query understanding (provision / interpretation / case / general; article refs; case resolution) | `src/.../query/understanding.py` | Phase 4 as scoped in D20 |
 | Evidence selection (lookups, locator boosts, intent-ordered groups, caps, confidence) | `src/.../reranking/evidence_selector.py`; model `common/evidence.py` | D20 |
 | Generation (interface + deterministic extractive backend; LLM backend open) | `src/.../generation/answer.py`, `pipeline.py`; model `common/answer.py` | §21.3 (FR-10, FR-11, FR-14) (D21) |
+| Phase 5 LLM provider abstraction (`LLMClient`; OpenAI-compatible client; config safety) | `src/.../generation/llm.py` | SRS §39 (LLM), NFR-05, FR-DEP-05 (D23) |
+| Phase 5 evidence context builder and grounding prompt (`grounded-v1`) | `src/.../generation/context.py`, `prompts.py` | FR-10, FR-11, §38 prompt injection (D24) |
+| Phase 5 LLM answer generator (parse, per-statement citation/quote validation) | `src/.../generation/llm_generator.py`; validator `generation/grounding.py` | FR-10–FR-12, NFR-02 (D25) |
 | Citation linkage and grounding validation | `src/.../citations/citation_builder.py`, `src/.../generation/grounding.py` | §21.3 (FR-12), NFR-02 (D22) |
 | Basic Evidence Check | `src/.../evidence/basic_check.py` | §21.3 (FR-13) |
 | Non-advice framing (cross-cutting, not a pipeline stage) | Applied in `generation/prompts.py` and `app/` UI copy | §21.3 (FR-14), §21.4 (FR-17) |
@@ -161,6 +164,76 @@ python scripts/query.py "What is Article 21?" --answer                  # ground
 python scripts/query.py "What is Article 21?" --answer --show-evidence  # + every evidence item, its scores and boosts
 python scripts/query.py "What is Article 21?" --answer --json           # Answer JSON
 ```
+
+### 3.5 Project phases and Phase 5: grounded LLM generation (D23, D24, D25)
+
+The project's working phase numbering (SRS §41 numbers phases more finely; see the note below):
+
+```
+Phase 1  Ingestion                PDFs + manifest -> registry, page text, provenance
+Phase 2  Legal-aware chunking     -> chunks with locational metadata
+Phase 3  Indexing                 -> BM25 + dense (FAISS) indexes per corpus
+Phase 4  Retrieval                Query -> BM25 + Dense -> Hybrid (RRF) -> Reranking (evidence selection) -> Final Evidence E1..En
+Phase 5  Grounded generation      Final Evidence + Query -> Context Builder -> LLM -> Grounded Answer -> Citation Validation
+Phase 6  Evaluation               (not built)
+```
+
+Phase 5 is a second backend behind Phase 4's `AnswerGenerator` interface. Retrieval, evidence selection and the confidence gate are unchanged, and the extractive backend remains the default.
+
+```
+AnswerPipeline.answer(query)                                    (generation/pipeline.py, unchanged flow)
+  analyze -> Retriever.hybrid -> select_evidence -> assess_confidence    Phase 4
+     | insufficient? -> "insufficient evidence" answer; the LLM is never called
+     v
+  LLMAnswerGenerator.generate(analysis, evidence)               (generation/llm_generator.py)
+     build_context: E1..En in Phase 4 order, provenance per item (context.py)
+     system prompt grounded-v1 + user prompt (question, type guidance, evidence) (prompts.py)
+     LLMClient.complete -> JSON {status, direct_answer[], explanation[]}; retry once if malformed
+     per statement: IDs must be among the evidence sent; >= 1 citation; quotes verbatim
+        -> otherwise the statement is removed, with a notice
+     citations = build_citation(evidence item)                  metadata never taken from the model
+  validate_answer(answer, evidence)                             (generation/grounding.py, any backend)
+```
+
+**What the model sees for each evidence item:** its ID ([E1]); source title; document type; judgment date; section (Article and title, or Part / Chapter / heading); passage type (constitutional text, reporter's headnote, or judgment text); PDF pages (and printed pages where labelled); document ID and version; chunk ID; source URL; retrieval ranks and scores; and the chunk text, wrapped in `<evidence>` delimiters. All of it comes from the evidence item, through the same helpers that build citations. Missing fields are omitted. The chunk model has no court field, and judge names follow `generation.show_opinion_author` (off by default, D21). Text longer than `context_max_chars_per_item` is truncated with a visible mark, and items beyond `context_max_items` / `context_max_total_chars` are not sent; both are reported in the answer's notices.
+
+**What the model returns:** JSON with `status` (`answered` or `insufficient_evidence`) and statements, each with `text`, `citations` (evidence IDs) and `basis` (`explicit` or `inference`). Anything else the model adds, such as its own page numbers or case names, is ignored.
+
+**How citations stay trustworthy:**
+- A statement is removed if it cites an ID that does not exist, or one that was not sent to the model.
+- A statement is removed if it cites nothing.
+- A statement is removed if text it puts in quotation marks (4+ words) is not verbatim in a cited passage.
+- Every `Citation` is `build_citation(evidence item)`: title, pages, chunk ID, URL and source type come from the Phase 1–4 records.
+- `validate_answer` re-checks the final answer: citations belong to the evidence set and match it field for field, every statement shows its `[E#]` markers, and quotations are verbatim.
+
+**Failures never fall back to the model's own knowledge:** a provider error, timeout or persistently malformed reply gives status `generation_failed`, with no claims and the evidence listed. If the model itself reports insufficient evidence, the status is `insufficient_evidence` with its reason.
+
+**Not checked in Phase 5:** whether a cited passage *semantically supports* a statement. Phase 5 guarantees that citations exist, carry true metadata, and that quotations are verbatim. Support checking is claim-level verification (SRS V2, FR-18–FR-25).
+
+**Configuration** (`configs/v1.yaml`):
+- `llm`: `provider` (`none` by default: disabled), `model`, `base_url`, `api_key_env` (default `LLM_API_KEY`), `require_api_key`, `allow_remote` (default false), `temperature` (0.0), `max_output_tokens`, `timeout_seconds`, `json_mode`, `max_retries`.
+- `generation`: `backend` (`extractive` or `llm`), `prompt_version` (`grounded-v1`), `context_max_items`, `context_max_chars_per_item`, `context_max_total_chars`.
+- Environment: `LLM_API_KEY` (the secret: `.env` or the environment only), plus optional overrides `LLM_PROVIDER`, `LLM_MODEL`, `LLM_BASE_URL`.
+- Corpus text is sent to a non-localhost `base_url` only when `allow_remote: true`. The key is never logged, printed or stored.
+
+```
+# local model (e.g. Ollama serving an OpenAI-compatible API), no key, nothing leaves the machine
+LLM_PROVIDER=openai_compatible LLM_MODEL=qwen2.5:7b-instruct LLM_BASE_URL=http://localhost:11434/v1 \
+  python scripts/query.py "What protections are provided for personal liberty?" --generate
+#   (set llm.require_api_key: false in configs/v1.yaml for a server without keys)
+
+# hosted provider: set llm.allow_remote: true in configs/v1.yaml, then
+LLM_PROVIDER=openai_compatible LLM_MODEL=<model> LLM_BASE_URL=<https://provider/v1> LLM_API_KEY=<key> \
+  python scripts/query.py "What protections are provided for personal liberty?" --mode hybrid --top-k 5 --generate
+
+python scripts/query.py "Article 21" --mode bm25 --top-k 5            # retrieval only (unchanged)
+python scripts/query.py "What is Article 21?" --answer                 # Phase 4 extractive answer (unchanged)
+python scripts/query.py "..." --generate --json                        # Answer JSON (Answer.summary() gives answer/citations/evidence_used)
+```
+
+With `--generate`, `--top-k` sets how many evidence items are selected and sent to the model; `--mode` must be `hybrid`.
+
+**Note on SRS numbering:** in SRS §41.1, Phase 4 is the cross-encoder reranker (FR-08, not built; evidence selection fills the reranking role, D20), Phase 5 is LLM generation (this section), Phase 6 is the Basic Evidence Check, and Phase 8 is the V1 evaluation. The project's "Phase 6 — Evaluation" corresponds to SRS Phase 8.
 
 **Build and query:**
 ```
@@ -257,7 +330,7 @@ All writes to the document store / metadata store are versioned (NFR-07); the ev
 
 ## 6. Current Implementation Status
 
-Updated as of Phase 4 (query understanding, evidence selection, grounded answers). Status values: **Not started / Scaffolded / In progress / Complete**.
+Updated as of Phase 5 (grounded LLM generation). Status values: **Not started / Scaffolded / In progress / Complete**.
 
 | Module | Status | Notes |
 |---|---|---|
@@ -271,6 +344,8 @@ Updated as of Phase 4 (query understanding, evidence selection, grounded answers
 | `src/.../chunking/` (`structure.py`, `legal_chunker.py`) + `common/chunks.py` + `scripts/chunk_corpus.py` | Complete (Phase 2) | D16. Verified on synthetic Constitution/judgment fixtures and on two real SCR judgments (Vishaka, Mafatlal). Not yet run on the real Constitution PDF (not in the corpus yet). `paragraph_number` not detected; `extraction_method` awaits FR-02a |
 | `src/.../retrieval/` + `common/retrieval.py` + `scripts/build_indexes.py`, `scripts/query.py` | Complete (Phase 3) | D17–D19. BM25 built and queried on the real corpus. Dense path tested end to end with a deterministic test embedder only: the BGE model has not yet been run, because model downloads were blocked in the build environment. Open: locator text for article-number queries (DECISIONS open items) |
 | `src/.../query/`, `reranking/evidence_selector.py`, `citations/`, `generation/` + `common/evidence.py`, `common/answer.py`; `scripts/query.py --answer` | Complete (Phase 4 as scoped in D20) | D20–D22. Extractive generator only (no LLM chosen yet). Tested on fixtures and run on the real corpus with BM25 only, because BGE was unavailable in the build environment |
+| `src/.../generation/llm.py`, `context.py`, `prompts.py`, `llm_generator.py`; `scripts/query.py --generate` | Complete (Phase 5) | D23–D25. Tested with a scripted LLM and a local HTTP server; no real model has been called. Model choice open |
+| Evaluation (project Phase 6 / SRS Phase 8) | Not started | Out of scope for Phase 5 |
 | `src/.../reranking/cross_encoder.py` | Not started | SRS FR-08 / Experiment C — still open |
 | `src/.../generation/`, `citations/`, `evidence/` | Not started | Phase 5–6 target |
 | `app/` | Not started | Phase 7 target |

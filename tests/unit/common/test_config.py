@@ -130,3 +130,25 @@ def test_invalid_phase4_settings_raise_config_error(tmp_path, section):
                       f"paths: {{data_raw_dir: r, data_processed_dir: p}}\n{section}\n")
     with pytest.raises(ConfigError):
         load_settings(config)
+
+
+def test_llm_settings_default_to_disabled_and_accept_env_overrides(monkeypatch):
+    settings = load_settings(Path("configs/v1.yaml"))
+    assert (settings.llm.provider, settings.llm.allow_remote, settings.llm.api_key_env) == ("none", False, "LLM_API_KEY")
+    assert (settings.generation.prompt_version, settings.generation.context_max_items) == ("grounded-v1", 6)
+
+    monkeypatch.setenv("LLM_PROVIDER", "openai_compatible")
+    monkeypatch.setenv("LLM_MODEL", "qwen2.5:7b-instruct")
+    monkeypatch.setenv("LLM_BASE_URL", "http://localhost:11434/v1")
+    llm = load_settings(Path("configs/v1.yaml")).llm
+    assert (llm.provider, llm.model, llm.base_url) == ("openai_compatible", "qwen2.5:7b-instruct", "http://localhost:11434/v1")
+
+
+@pytest.mark.parametrize("section", ["llm: {temperature: 3}", "llm: {provider: gpt}", "llm: {timeout_seconds: 0}",
+                                     "llm: {api_key: secret}", "generation: {prompt_version: v9}"])
+def test_invalid_llm_settings_raise_config_error(tmp_path, section):
+    config = tmp_path / "c.yaml"
+    config.write_text("app: {name: t, version: '0', phase: v1}\nlogging: {level: INFO}\n"
+                      f"paths: {{data_raw_dir: r, data_processed_dir: p}}\n{section}\n")
+    with pytest.raises(ConfigError):
+        load_settings(config)
