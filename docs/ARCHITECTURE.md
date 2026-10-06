@@ -73,6 +73,7 @@ V1 is a complete, independently evaluable system (SRS §41.1: "at the end of Pha
 | Phase 5 LLM provider abstraction (`LLMClient`; OpenAI-compatible client; config safety) | `src/.../generation/llm.py` | SRS §39 (LLM), NFR-05, FR-DEP-05 (D23) |
 | Phase 5 evidence context builder and grounding prompt (`grounded-v1`) | `src/.../generation/context.py`, `prompts.py` | FR-10, FR-11, §38 prompt injection (D24) |
 | Phase 5 LLM answer generator (parse, per-statement citation/quote validation) | `src/.../generation/llm_generator.py`; validator `generation/grounding.py` | FR-10–FR-12, NFR-02 (D25) |
+| Phase 6 claim-level evidence-support check (claim extraction, support validator, answer policy) | `src/.../validation/claims.py`, `support.py`, `policy.py`; model `common/validation.py` | FR-13 (Basic Evidence Check), NFR-02 (D26) |
 | Citation linkage and grounding validation | `src/.../citations/citation_builder.py`, `src/.../generation/grounding.py` | §21.3 (FR-12), NFR-02 (D22) |
 | Basic Evidence Check | `src/.../evidence/basic_check.py` | §21.3 (FR-13) |
 | Non-advice framing (cross-cutting, not a pipeline stage) | Applied in `generation/prompts.py` and `app/` UI copy | §21.3 (FR-14), §21.4 (FR-17) |
@@ -175,7 +176,9 @@ Phase 2  Legal-aware chunking     -> chunks with locational metadata
 Phase 3  Indexing                 -> BM25 + dense (FAISS) indexes per corpus
 Phase 4  Retrieval                Query -> BM25 + Dense -> Hybrid (RRF) -> Reranking (evidence selection) -> Final Evidence E1..En
 Phase 5  Grounded generation      Final Evidence + Query -> Context Builder -> LLM -> Grounded Answer -> Citation Validation
-Phase 6  Evaluation               (not built)
+Phase 6  Evidence-support check   Draft Answer -> Claim Extraction -> Claim->Citation Mapping -> Support Validation
+                                  -> remove / flag unsupported claims -> Final Grounded Answer   (section 3.6)
+Phase 7+ Evaluation, UI           (not built)
 ```
 
 Phase 5 is a second backend behind Phase 4's `AnswerGenerator` interface. Retrieval, evidence selection and the confidence gate are unchanged, and the extractive backend remains the default.
@@ -233,7 +236,53 @@ python scripts/query.py "..." --generate --json                        # Answer 
 
 With `--generate`, `--top-k` sets how many evidence items are selected and sent to the model; `--mode` must be `hybrid`.
 
-**Note on SRS numbering:** in SRS §41.1, Phase 4 is the cross-encoder reranker (FR-08, not built; evidence selection fills the reranking role, D20), Phase 5 is LLM generation (this section), Phase 6 is the Basic Evidence Check, and Phase 8 is the V1 evaluation. The project's "Phase 6 — Evaluation" corresponds to SRS Phase 8.
+**Note on SRS numbering (updated for Phase 6):** project Phase 6 implements SRS FR-13 (the SRS's own Phase 6, "Basic Evidence Check") at claim level; evaluation is not built yet. **Earlier note:** in SRS §41.1, Phase 4 is the cross-encoder reranker (FR-08, not built; evidence selection fills the reranking role, D20), Phase 5 is LLM generation (this section), Phase 6 is the Basic Evidence Check, and Phase 8 is the V1 evaluation. The project's "Phase 6 — Evaluation" corresponds to SRS Phase 8.
+
+### 3.6 Phase 6: claim-level evidence-support check (D26)
+
+> **Phase 6 verifies whether retrieved evidence provides textual/semantic support for generated claims. It does not determine legal correctness, precedent validity, or whether a case remains good law.**
+
+**Why citation existence is not enough.** Phase 5 guarantees that every cited ID exists, points to retrieved evidence, carries true metadata, and that quotations are verbatim. It does not guarantee that the cited passage *says* what the claim says. "Maneka Gandhi held X [E2]", where E2 is a Constitution passage, passes Phase 5 and fails Phase 6.
+
+```
+Phase 5 answer (statements with [E#])
+  -> extract_claims         (validation/claims.py)  sentence-level claims, legal-aware splitter, no LLM call;
+                                                    a sentence's own [E#] markers, else its statement's citations
+  -> SupportValidator       (validation/support.py) per claim, against the cited evidence only:
+       1 structural  empty claim / no citation / unknown citation / empty evidence   -> insufficient
+       2 quotations  text in quotation marks must be verbatim in the cited text      -> else insufficient
+       3 exact match claim appears verbatim in a cited passage                       -> supported
+       4 content     fewer than min_claim_terms key terms                            -> insufficient
+       5 entities    names and numbers must appear in the cited text or its metadata -> else insufficient
+       6 contradiction  explicit patterns only (see below)                           -> contradicted
+       7 negation    a negative claim needs evidence negating the same terms         -> else insufficient
+       8 coverage    key-term coverage >= support_coverage (+ semantic floor if semantic) -> supported
+       9 otherwise                                                                   -> insufficient
+  -> apply_support_validation (validation/policy.py)
+       supported: kept (non-contributing citations dropped) · insufficient: removed with a notice ·
+       contradicted: removed and flagged · any removal -> partial · nothing left -> insufficient_evidence
+  -> validate_answer (Phase 5 grounding check, unchanged)
+```
+
+**States.** `supported`: the cited evidence states what the claim says. `contradicted`: an explicit conflict pattern matched. `insufficient`: support could not be confirmed. This is the conservative default, because a false "supported" is the dangerous error in legal research.
+
+**Contradiction patterns** (each also needs the evidence sentence to share the claim's subject, `contradiction_min_overlap`):
+1. The claim says something happens "without" X, while the evidence allows it only "except according to / only by" X.
+2. Antonymous outcomes about the same subject: valid / invalid, constitutional / unconstitutional, upheld / struck down, permitted / prohibited.
+3. The claim calls a right "absolute" or "unlimited", while the evidence makes it "subject to" restrictions or exceptions.
+4. The claim negates a term that a cited sentence, or the Article's own title, states affirmatively.
+
+Similarity is never treated as entailment. Anything these patterns miss can at worst stay `insufficient`, because the negation and coverage rules stop a negated or loosely related claim from being `supported`.
+
+**Methods.**
+- `lexical` (default): key-term coverage with deterministic suffix stemming ("protects" / "protection", "deprived" / "deprivation").
+- `semantic`: the same rules, plus cosine similarity from the project's own embedding model (the same instance as retrieval; no second model). Cosine below `semantic_floor` vetoes support. A paraphrase with coverage ≥ `semantic_support_coverage` and cosine ≥ `semantic_support_threshold` counts as supported.
+
+All thresholds are heuristic and configurable (`evidence_validation` in `configs/v1.yaml`). The semantic thresholds are uncalibrated until measured on BGE scores, which is why `lexical` is the default.
+
+**Scope.** Phase 6 checks LLM answers (`--generate`). Extractive answers are verbatim quotations already enforced by the grounding validator, and are not re-checked. Results are on `Answer.validation` and in `Answer.summary()["validation"]`. The CLI prints a one-line summary and any flagged contradictions; `--show-validation` adds per-claim status, score and reason.
+
+**Not done by Phase 6:** legal correctness, precedent validity or good-law status, judicial hierarchy, resolving conflicting precedents, or telling a party's argument from the Court's holding (a passage stating an argument still "supports" a claim that repeats it). Those are outside the project (SRS §11) or belong to V2: NLI verification FR-18–FR-25, and holding-vs-argument FR-JS-01–04.
 
 **Build and query:**
 ```
@@ -330,7 +379,7 @@ All writes to the document store / metadata store are versioned (NFR-07); the ev
 
 ## 6. Current Implementation Status
 
-Updated as of Phase 5 (grounded LLM generation). Status values: **Not started / Scaffolded / In progress / Complete**.
+Updated as of Phase 6 (claim-level evidence-support check). Status values: **Not started / Scaffolded / In progress / Complete**.
 
 | Module | Status | Notes |
 |---|---|---|
@@ -345,7 +394,8 @@ Updated as of Phase 5 (grounded LLM generation). Status values: **Not started / 
 | `src/.../retrieval/` + `common/retrieval.py` + `scripts/build_indexes.py`, `scripts/query.py` | Complete (Phase 3) | D17–D19. BM25 built and queried on the real corpus. Dense path tested end to end with a deterministic test embedder only: the BGE model has not yet been run, because model downloads were blocked in the build environment. Open: locator text for article-number queries (DECISIONS open items) |
 | `src/.../query/`, `reranking/evidence_selector.py`, `citations/`, `generation/` + `common/evidence.py`, `common/answer.py`; `scripts/query.py --answer` | Complete (Phase 4 as scoped in D20) | D20–D22. Extractive generator only (no LLM chosen yet). Tested on fixtures and run on the real corpus with BM25 only, because BGE was unavailable in the build environment |
 | `src/.../generation/llm.py`, `context.py`, `prompts.py`, `llm_generator.py`; `scripts/query.py --generate` | Complete (Phase 5) | D23–D25. Tested with a scripted LLM and a local HTTP server; no real model has been called. Model choice open |
-| Evaluation (project Phase 6 / SRS Phase 8) | Not started | Out of scope for Phase 5 |
+| `src/.../validation/` + `common/validation.py`; `scripts/query.py --show-validation` | Complete (Phase 6) | D26. Lexical method default; semantic method tested with a deterministic embedder only (BGE thresholds uncalibrated) |
+| Evaluation (SRS Phase 8) | Not started | |
 | `src/.../reranking/cross_encoder.py` | Not started | SRS FR-08 / Experiment C — still open |
 | `src/.../generation/`, `citations/`, `evidence/` | Not started | Phase 5–6 target |
 | `app/` | Not started | Phase 7 target |

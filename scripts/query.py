@@ -49,6 +49,8 @@ def main(argv: list[str] | None = None, embedder_factory=make_embedder, llm_clie
     parser.add_argument("--json", action="store_true", help="print RetrievedChunk JSON lines (or Answer JSON with --answer)")
     parser.add_argument("--answer", action="store_true", help="return a grounded, cited answer instead of a ranked list")
     parser.add_argument("--show-evidence", action="store_true", help="with --answer/--generate: list all evidence items and scores")
+    parser.add_argument("--show-validation", action="store_true",
+                        help="with --generate: show the Phase 6 evidence-support result for every claim")
     parser.add_argument("--generate", action="store_true",
                         help="Phase 5: grounded answer written by the configured LLM, citing evidence as [E1], [E2]")
     parser.add_argument("--config", type=Path, default=None)
@@ -133,7 +135,8 @@ def _answer(args, settings, logger, embedder_factory, generator=None) -> int:
     except Exception as exc:  # noqa: BLE001 — embedding model could not be loaded
         logger.error("%s: %s", type(exc).__name__, exc)
         return 2
-    print(answer.model_dump_json(indent=2) if args.json else render_text(answer, show_evidence=args.show_evidence, show_author=settings.generation.show_opinion_author))
+    print(answer.model_dump_json(indent=2) if args.json else render_text(answer, show_evidence=args.show_evidence, show_author=settings.generation.show_opinion_author,
+                                                                       show_validation=args.show_validation))
     return 0
 
 

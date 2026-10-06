@@ -17,9 +17,9 @@ GOOD = reply(direct=[(f'Article 21 provides that "{ART21}" [E1]', ["E1"], "expli
              explanation=[("Maneka Gandhi read Article 21 together with Article 14 [E2].", ["E2"], "inference")])
 
 
-def answer(built, *replies, query="What does Article 21 provide?", **llm):
+def answer(built, *replies, query="What does Article 21 provide?", validation=None, **llm):
     fake = ScriptedLLM(*replies)
-    return llm_pipeline(built, fake, **llm).answer(query), fake
+    return llm_pipeline(built, fake, validation=validation, **llm).answer(query), fake
 
 
 # ------------------------------------------------------------------ success and provenance
@@ -68,7 +68,10 @@ def test_payload_parsing_tolerates_fences_and_prose(wrapper):
 
 
 def test_citation_id_variants_are_normalized(built):
-    a, _ = answer(built, reply(direct=[("Article 21 protects personal liberty [e1, E2].", ["[E1]", "e2"], "explicit")]))
+    # Phase 5 behaviour under test (marker normalization), so Phase 6 is switched off explicitly;
+    # with Phase 6 on, the non-supporting [E2] is dropped — see test_validation_pipeline.py.
+    a, _ = answer(built, reply(direct=[("Article 21 protects personal liberty [e1, E2].", ["[E1]", "e2"], "explicit")]),
+                  validation={"enabled": False})
     assert "[E1] [E2]" in a.claims[0].statement and [c.evidence_id for c in a.citations] == ["E1", "E2"]
 
 

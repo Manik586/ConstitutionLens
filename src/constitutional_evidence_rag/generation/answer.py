@@ -159,12 +159,38 @@ def insufficient_answer(analysis: QueryAnalysis, evidence: EvidenceSet, reasons:
                   evidence=evidence.items, notices=list(dict.fromkeys(reasons)), generator=generator)
 
 
+def _render_validation(answer: Answer, detailed: bool) -> list[str]:
+    from constitutional_evidence_rag.common.validation import SupportStatus
+
+    v = answer.validation
+    removed = sum(not c.kept for c in v.claims)
+    lines = [f"Evidence-support check (basic, {v.method}; textual support only, not legal verification): "
+             f"{v.count(SupportStatus.SUPPORTED)} of {len(v.claims)} claims supported, "
+             f"{v.count(SupportStatus.INSUFFICIENT)} insufficient, {v.count(SupportStatus.CONTRADICTED)} contradicted"
+             + (f" ({removed} removed)." if removed else "."), ""]
+    flagged = [c for c in v.claims if c.status is SupportStatus.CONTRADICTED]
+    if flagged:
+        lines.append("Flagged claims (contradicted by the cited evidence; not part of the answer):")
+        lines += [f"  {c.claim_id}: {c.text}  — {c.reason}" for c in flagged]
+        lines.append("")
+    if detailed:
+        lines.append("Claim validation:")
+        for c in v.claims:
+            cites = " ".join(f"[{i}]" for i in c.citation_ids) or "(none)"
+            lines += [f"  Claim {c.claim_id} ({c.claim_type.value}): {c.text}",
+                      f"    Citations: {cites}   Support: {c.status.value.upper()}   Score: {c.score:.2f}"
+                      + ("" if c.kept else "   (removed)"),
+                      f"    Reason: {c.reason}"]
+        lines.append("")
+    return lines
+
+
 _HEADINGS = [(AnswerSection.ANSWER, "Answer"), (AnswerSection.CONSTITUTIONAL_SOURCE, "Constitutional source"),
              (AnswerSection.JUDICIAL_INTERPRETATION, "Judicial interpretation (quoted passages)"),
              (AnswerSection.OTHER_EVIDENCE, "Other evidence")]
 
 
-def render_text(answer: Answer, show_evidence: bool = False, show_author: bool = False) -> str:
+def render_text(answer: Answer, show_evidence: bool = False, show_author: bool = False, show_validation: bool = False) -> str:
     lines = [f"Query type: {answer.query_type.value} | status: {answer.status.value} | generator: {answer.generator}", ""]
     if answer.status is AnswerStatus.INSUFFICIENT_EVIDENCE:
         lines += ["Answer:", "  The available evidence in the corpus is insufficient to answer this question reliably.", ""]
@@ -181,6 +207,8 @@ def render_text(answer: Answer, show_evidence: bool = False, show_author: bool =
         lines.append("Citations:")
         lines += [f"  {format_citation(c, show_author, answer.marker(c))}" for c in answer.citations]
         lines.append("")
+    if answer.validation:
+        lines += _render_validation(answer, show_validation)
     if answer.notices:
         lines.append("Notes:")
         lines += [f"  - {n}" for n in answer.notices]

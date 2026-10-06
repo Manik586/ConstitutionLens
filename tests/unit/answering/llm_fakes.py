@@ -34,14 +34,15 @@ def reply(direct=(), explanation=(), status="answered", reason=None) -> str:
 ART21 = "No person shall be deprived of his life or personal liberty except according to procedure established by law."
 
 
-def llm_settings(settings, generation=None, **llm):
+def llm_settings(settings, generation=None, validation=None, **llm):
     return settings.model_copy(update={
         "generation": settings.generation.model_copy(update={"backend": "llm", **(generation or {})}),
+        "evidence_validation": settings.evidence_validation.model_copy(update=validation or {}),
         "llm": settings.llm.model_copy(update={"model": "test-model", **llm})})
 
 
-def llm_pipeline(built, llm, generation=None, **llm_overrides):
-    s = llm_settings(built["settings"], generation, **llm_overrides)
+def llm_pipeline(built, llm, generation=None, validation=None, **llm_overrides):
+    s = llm_settings(built["settings"], generation, validation, **llm_overrides)
     return AnswerPipeline.load(processed_root=s.paths.data_processed_dir, indexes_root=s.paths.indexes_dir,
                                corpus_id=CURATED_CORPUS_ID, settings=s, embedder=HashingEmbedder(),
                                generator=make_generator(s, llm))

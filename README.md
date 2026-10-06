@@ -80,3 +80,22 @@ python scripts/query.py "What does Article 21 provide?" --generate --json
 ```
 
 Answers cite evidence as `[E1]`, `[E2]`. Every citation's source, pages and chunk come from the retrieved evidence, never from the model; statements with unknown citations or inexact quotations are removed and reported. If evidence is weak, or the model call fails, you get an explicit "insufficient evidence" or "generation failed" result with the evidence listed, never an answer from the model's own knowledge. Retrieval-only (`--mode bm25|dense|hybrid` without `--generate`) and the extractive `--answer` work exactly as before.
+
+## Claim-level evidence-support check (Phase 6)
+
+> Phase 6 verifies whether retrieved evidence provides textual/semantic support for generated claims. It does not determine legal correctness, precedent validity, or whether a case remains good law.
+
+Phase 5 guarantees that citations exist and quotations are exact, but a real citation can still point at a passage that does not say what the sentence claims. Phase 6 splits every LLM answer into individual claims and checks each against the evidence it cites:
+
+- **supported**: the cited evidence states it. The claim is kept.
+- **insufficient**: support could not be confirmed. The claim is removed, with a note. This is the default when in doubt.
+- **contradicted**: an explicit conflict with the cited evidence. The claim is removed and flagged.
+
+If anything is removed, the answer is marked `partial`. If nothing survives, the result is `insufficient_evidence`; the model's own knowledge is never used to fill gaps. The check is deterministic, makes no extra LLM call, and runs automatically with `--generate`:
+
+```bash
+python scripts/query.py "What protections are provided for personal liberty?" --mode hybrid --top-k 5 --generate
+python scripts/query.py "What does Article 21 provide?" --generate --show-validation   # per-claim status, score, reason
+```
+
+Configure it under `evidence_validation` in `configs/v1.yaml`: `enabled`, `method` (`lexical` default, or `semantic`, which reuses the embedding model), and the heuristic thresholds. See `docs/ARCHITECTURE.md` §3.6 and `docs/DECISIONS.md` D26 for the rules and limitations.

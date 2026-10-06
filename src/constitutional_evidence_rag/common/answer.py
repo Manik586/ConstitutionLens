@@ -15,6 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from constitutional_evidence_rag.common.chunks import Division
 from constitutional_evidence_rag.common.evidence import EvidenceItem, QueryType
 from constitutional_evidence_rag.common.models import SourceType
+from constitutional_evidence_rag.common.validation import AnswerValidation
 
 DISCLAIMER = (
     "This is a legal research tool, not legal advice. Passages are quoted from retrieved sources; "
@@ -92,6 +93,7 @@ class Answer(BaseModel):
     # "number": statements cite [1], [2] (extractive, Phase 4). "evidence_id": statements cite the
     # evidence IDs [E1], [E2] that the LLM was given (Phase 5); citation_id is then the E-number.
     citation_style: Literal["number", "evidence_id"] = "number"
+    validation: AnswerValidation | None = None  # Phase 6 claim-level evidence-support results, when run
     disclaimer: str = DISCLAIMER
 
     def marker(self, citation: Citation) -> str:
@@ -106,4 +108,8 @@ class Answer(BaseModel):
             "evidence_used": [{"citation_id": self.marker(c).strip("[]"), "document_id": c.document_id,
                                "chunk_id": c.chunk_id, "title": c.title, "pages": [c.page_start, c.page_end],
                                "source_url": c.source_url} for c in self.citations],
+            **({"validation": {"method": self.validation.method, "claims": [
+                {"claim_id": v.claim_id, "text": v.text, "citations": v.citation_ids, "status": v.status.value,
+                 "score": round(v.score, 3), "reason": v.reason, "kept": v.kept} for v in self.validation.claims]}}
+               if self.validation else {}),
         }

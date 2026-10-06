@@ -166,6 +166,27 @@ class LLMSettings(BaseModel):
     max_retries: int = Field(default=1, ge=0, le=3)  # re-asks after a malformed (non-JSON / off-schema) reply
 
 
+class EvidenceValidationSettings(BaseModel):
+    """Phase 6 claim-level evidence-support check (SRS FR-13 Basic Evidence Check; D26).
+
+    Heuristic thresholds, conservative by design: when in doubt a claim is
+    "insufficient", never "supported". The semantic method reuses the project's
+    embedding model; its thresholds are uncalibrated until measured on BGE scores.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = True  # applies to LLM answers (generation.backend: llm / --generate)
+    method: Literal["lexical", "semantic"] = "lexical"
+    support_coverage: float = Field(default=0.75, gt=0, le=1)  # share of the claim's key terms found in its evidence
+    min_claim_terms: int = Field(default=2, ge=1)  # fewer key terms than this -> too little content to check
+    contribution_min: float = Field(default=0.3, ge=0, le=1)  # a cited item covering less than this is dropped as a citation
+    contradiction_min_overlap: float = Field(default=0.5, gt=0, le=1)  # shared subject needed before a pattern counts as contradiction
+    semantic_floor: float = Field(default=0.5, ge=-1, le=1)  # semantic: below this cosine, never "supported"
+    semantic_support_threshold: float = Field(default=0.8, ge=-1, le=1)  # semantic: paraphrase path needs this cosine ...
+    semantic_support_coverage: float = Field(default=0.5, gt=0, le=1)  # ... and at least this coverage
+
+
 class Settings(BaseModel):
     """Top-level, validated configuration for the current phase."""
 
@@ -180,6 +201,7 @@ class Settings(BaseModel):
     evidence: EvidenceSettings = EvidenceSettings()
     generation: GenerationSettings = GenerationSettings()
     llm: LLMSettings = LLMSettings()
+    evidence_validation: EvidenceValidationSettings = EvidenceValidationSettings()
 
 
 def _apply_env_overrides(raw: dict[str, Any]) -> dict[str, Any]:

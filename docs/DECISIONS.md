@@ -352,6 +352,39 @@ Provider failures map to typed errors (`LLMConfigurationError`, `LLMTimeoutError
 
 ---
 
+## D26 — Phase 6: deterministic claim-level evidence-support check (SRS FR-13 at claim level)
+
+**Context:** Phase 5 validates that citations exist and quotations are verbatim, but not that the cited passage supports the claim. SRS FR-13, the "Basic Evidence Check", which is SRS Phase 6, asks for a similarity/presence check per citation, with no NLI model, never called "verification". Model-based claim verification is V2 (FR-18–FR-25).
+
+**Decision:**
+- Phase 6 splits each LLM statement into sentence-level claims, deterministically, with no extra LLM call.
+- Each claim is checked only against the evidence it cites, by ordered rules: structural; verbatim quotations; exact match; minimum content; entities (names and numbers must appear in the cited text or its metadata); explicit contradiction patterns; negation alignment; key-term coverage. An optional cosine-similarity check reuses the project's embedding model.
+- There are three states, and **`insufficient` is the default whenever support is not confirmed**. Contradiction requires an explicit pattern; similarity is never treated as entailment.
+- Supported claims are kept, and cited items that contribute nothing are dropped from the claim. Insufficient claims are removed with a notice, which is Phase 5's policy. Contradicted claims are removed and flagged.
+- Any removal makes the answer `partial`; nothing left makes it `insufficient_evidence`. Nothing is ever replaced from the model's own knowledge, and the evidence is never modified.
+- The UI and docs say "basic evidence-support check … not legal verification" (FR-13/FR-16 wording).
+- The package is `validation/`, kept distinct from V2's `verification/` (Invariant 3).
+
+**Statement of scope:** Phase 6 verifies whether retrieved evidence provides textual/semantic support for generated claims. It does not determine legal correctness, precedent validity, or whether a case remains good law.
+
+**Defaults and why:**
+- `method: lexical`, because the semantic thresholds cannot be calibrated until BGE runs on the evaluation set.
+- `support_coverage: 0.75`, so three quarters of a claim's key terms must appear in its evidence.
+- `contradiction_min_overlap: 0.5`, `contribution_min: 0.3`.
+- `semantic_floor: 0.5` and `semantic_support_threshold: 0.8`, used only with `semantic`.
+
+All are heuristic, configurable, and to be revisited with the evaluation set.
+
+**Consequences:** The example the brief was written around is caught: "Maneka Gandhi established X [E2]" with E2 a Constitution passage is `insufficient`, because the case is not in E2. So is "Article 21 provides that personal liberty can be taken away without legal procedure", which is `contradicted`. Known limits:
+- Coverage-based support can still accept a claim that reuses a passage's words with a different meaning. The negation and contradiction rules reduce, but do not remove, this risk; NLI (V2) addresses it.
+- Paraphrases using different vocabulary are often `insufficient` (false negatives) in lexical mode.
+- A passage recording a party's argument "supports" a claim repeating it (holding-vs-argument is V2, FR-JS-01–04).
+- One existing Phase 5 test (`test_citation_id_variants_are_normalized`) now runs with Phase 6 explicitly off, because it tests Phase 5 marker normalization, which is unchanged. With Phase 6 on, the same reply correctly drops a non-supporting `[E2]`, which a new test asserts.
+
+**Reference:** SRS FR-13, FR-16, §28.2, §41.1 (Phase 6), §11; D21, D22, D25.
+
+---
+
 ## Open decisions (not yet made — flagged for the next phase)
 
 - **Phase 2 labelling gaps (affect Phase 4 answers).** Some Constitution article headings are missed (Articles 4, 65, 174, 325, 368, 369, …: long or footnote-marked titles), and some opinion-author lines are missed ("BHAGWATI, J.-The …", "DR. D.Y. CHANDRACHUD, J."). Phase 4 reports a missing Article rather than inventing it, and hides author names by default (D21). Fixing Phase 2 requires re-chunking and an index rebuild.

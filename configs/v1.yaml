@@ -79,16 +79,31 @@ generation:
 # anywhere. The API key is read from the environment variable named in api_key_env
 # (put it in .env, never here). Corpus evidence goes to a non-localhost base_url only
 # when allow_remote is true. Env overrides: LLM_PROVIDER, LLM_MODEL, LLM_BASE_URL.
-
 llm:
-  provider: none
-  model: gemini-2.5-flash-lite
-  base_url: https://generativelanguage.googleapis.com/v1beta/openai/
+  provider: none                 # none | openai_compatible
+  model: null                    # e.g. a hosted model name, or qwen2.5:7b-instruct on Ollama
+  base_url: null                 # e.g. https://api.example.com/v1, http://localhost:11434/v1
   api_key_env: LLM_API_KEY
-  require_api_key: true
+  require_api_key: true          # false for local servers that need no key
   allow_remote: false
   temperature: 0.0
-  max_output_tokens: 2048
+  max_output_tokens: 800
   timeout_seconds: 60
   json_mode: false
   max_retries: 1
+
+# Phase 6 claim-level evidence-support check (D26; SRS FR-13 Basic Evidence Check).
+# Splits each LLM answer statement into claims and checks each against the evidence
+# it cites: supported / contradicted / insufficient. Unsupported and contradicted claims
+# are removed (contradicted ones are also flagged). Heuristic, conservative thresholds;
+# it checks textual support only — NOT legal correctness or whether a case is good law.
+evidence_validation:
+  enabled: true
+  method: semantic                # lexical | semantic (semantic reuses the embedding model; calibrate first)
+  support_coverage: 0.75          # share of a claim's key terms that must appear in its cited evidence
+  min_claim_terms: 2
+  contribution_min: 0.3           # cited items covering less than this are dropped from the claim
+  contradiction_min_overlap: 0.5  # shared subject required before a contradiction pattern counts
+  semantic_floor: 0.5             # semantic method: never "supported" below this cosine
+  semantic_support_threshold: 0.8 # semantic method: paraphrase path (cosine >= this ...
+  semantic_support_coverage: 0.5  #   ... and coverage >= this)
