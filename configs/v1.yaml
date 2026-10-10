@@ -52,6 +52,16 @@ retrieval:
 # Phase 4 evidence selection (D20). Boosts are locator matches in RRF units,
 # never source-type/authority weights (SRS §20.2, FR-SA-05). Confidence floors
 # trigger an explicit "insufficient evidence" answer instead of a guess.
+# SRS FR-08 cross-encoder reranking (Experiment C; measured with scripts/evaluate_retrieval.py).
+# Off by default. When on, the top `candidates` hybrid results are re-scored by the model.
+reranking:
+  enabled: false
+  model_name: BAAI/bge-reranker-base
+  candidates: 30
+  max_length: 512
+  batch_size: 16
+  device: cpu
+
 evidence:
   candidate_pool: 50
   top_k: 6
@@ -85,8 +95,8 @@ llm:
   model: null                    # e.g. a hosted model name, or qwen2.5:7b-instruct on Ollama
   base_url: null                 # e.g. https://api.example.com/v1, http://localhost:11434/v1
   api_key_env: LLM_API_KEY
-  require_api_key: true          # false for local servers that need no key
-  allow_remote: true
+  require_api_key: true          # false for local servers that need no key (env: LLM_REQUIRE_API_KEY)
+  allow_remote: false            # env override: LLM_ALLOW_REMOTE=true (set it in .env, per machine)
   temperature: 0.0
   max_output_tokens: 800
   timeout_seconds: 60

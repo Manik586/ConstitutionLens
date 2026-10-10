@@ -134,6 +134,17 @@ With Docker: `docker compose up --build` serves the API and the web UI on 127.0.
 - With `generate`, the retrieved passages from your documents are sent to the configured LLM provider.
 - Answers from your documents are not legal advice and not an authoritative statement of law. The Phase 6 check is an evidence-support check, not legal verification.
 
+## Retrieval evaluation
+
+`data/eval/retrieval_v1.jsonl` holds 39 questions with known correct sources (case, provision, out-of-scope). Measure the search modes and, optionally, cross-encoder rerankers:
+
+```bash
+python scripts/evaluate_retrieval.py
+python scripts/evaluate_retrieval.py --rerank BAAI/bge-reranker-base
+```
+
+It prints hit@1/5/10 and MRR per mode, hit@6 for the final evidence set, and whether rank-1 scores separate answerable from out-of-scope questions. A JSON report goes to `data/eval/reports/`. Results and the decision to keep reranking off are in `docs/DECISIONS.md` D31. Reranking can be switched on under `reranking:` in `configs/v1.yaml`, but it is only used by the evaluation script for now.
+
 ## ConstitutionLens web UI (Phase 8)
 
 **ConstitutionLens — Evidence-Grounded Document Research.** A browser UI for everything in Phase 7: create a corpus, upload PDFs, build its index, ask questions, and read the answer next to its evidence and the Phase 6 evidence-support check. It is plain HTML, CSS and JavaScript (ES modules) served by the same FastAPI app. There is no build step, no Node server, and no CDN: fonts are the system's, and the animation library (GSAP 3.13, standard no-charge licence) is vendored under `web/static/vendor/`.

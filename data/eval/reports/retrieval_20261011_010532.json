@@ -1,0 +1,610 @@
+{
+  "generated_at": "2026-10-10T19:35:32+00:00",
+  "corpus_id": "constitutional-core",
+  "questions": "retrieval_v1.jsonl",
+  "n_questions": 39,
+  "embedding_model": "BAAI/bge-small-en-v1.5",
+  "rerank_candidates": 30,
+  "retrieval": [
+    {
+      "mode": "bm25",
+      "all": {
+        "hit@1": 0.697,
+        "hit@5": 0.848,
+        "hit@10": 0.879,
+        "mrr@10": 0.777,
+        "n": 33
+      },
+      "case": {
+        "hit@1": 0.85,
+        "hit@5": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 0.925,
+        "n": 20
+      },
+      "provision": {
+        "hit@1": 0.462,
+        "hit@5": 0.615,
+        "hit@10": 0.692,
+        "mrr@10": 0.548,
+        "n": 13
+      },
+      "mean_seconds": 0.001
+    },
+    {
+      "mode": "dense",
+      "all": {
+        "hit@1": 0.788,
+        "hit@5": 0.879,
+        "hit@10": 0.939,
+        "mrr@10": 0.837,
+        "n": 33
+      },
+      "case": {
+        "hit@1": 0.9,
+        "hit@5": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 0.942,
+        "n": 20
+      },
+      "provision": {
+        "hit@1": 0.615,
+        "hit@5": 0.692,
+        "hit@10": 0.846,
+        "mrr@10": 0.676,
+        "n": 13
+      },
+      "mean_seconds": 0.033
+    },
+    {
+      "mode": "hybrid",
+      "all": {
+        "hit@1": 0.848,
+        "hit@5": 0.879,
+        "hit@10": 0.879,
+        "mrr@10": 0.864,
+        "n": 33
+      },
+      "case": {
+        "hit@1": 1.0,
+        "hit@5": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 1.0,
+        "n": 20
+      },
+      "provision": {
+        "hit@1": 0.615,
+        "hit@5": 0.692,
+        "hit@10": 0.692,
+        "mrr@10": 0.654,
+        "n": 13
+      },
+      "mean_seconds": 0.03
+    },
+    {
+      "mode": "rerank[ms-marco-MiniLM-L-6-v2]",
+      "all": {
+        "hit@1": 0.727,
+        "hit@5": 0.909,
+        "hit@10": 0.909,
+        "mrr@10": 0.804,
+        "n": 33
+      },
+      "case": {
+        "hit@1": 0.85,
+        "hit@5": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 0.917,
+        "n": 20
+      },
+      "provision": {
+        "hit@1": 0.538,
+        "hit@5": 0.769,
+        "hit@10": 0.769,
+        "mrr@10": 0.631,
+        "n": 13
+      },
+      "mean_seconds": 2.423
+    },
+    {
+      "mode": "rerank[bge-reranker-base]",
+      "all": {
+        "hit@1": 0.848,
+        "hit@5": 0.939,
+        "hit@10": 0.939,
+        "mrr@10": 0.881,
+        "n": 33
+      },
+      "case": {
+        "hit@1": 0.95,
+        "hit@5": 1.0,
+        "hit@10": 1.0,
+        "mrr@10": 0.963,
+        "n": 20
+      },
+      "provision": {
+        "hit@1": 0.692,
+        "hit@5": 0.846,
+        "hit@10": 0.846,
+        "mrr@10": 0.756,
+        "n": 13
+      },
+      "mean_seconds": 13.446
+    }
+  ],
+  "evidence": [
+    {
+      "mode": "evidence[hybrid]",
+      "all": {
+        "hit@6": 1.0,
+        "mrr@6": 0.96,
+        "n": 33
+      },
+      "case": {
+        "hit@6": 1.0,
+        "mrr@6": 1.0,
+        "n": 20
+      },
+      "provision": {
+        "hit@6": 1.0,
+        "mrr@6": 0.897,
+        "n": 13
+      }
+    },
+    {
+      "mode": "evidence[rerank[ms-marco-MiniLM-L-6-v2]]",
+      "all": {
+        "hit@6": 1.0,
+        "mrr@6": 0.899,
+        "n": 33
+      },
+      "case": {
+        "hit@6": 1.0,
+        "mrr@6": 0.917,
+        "n": 20
+      },
+      "provision": {
+        "hit@6": 1.0,
+        "mrr@6": 0.872,
+        "n": 13
+      }
+    },
+    {
+      "mode": "evidence[rerank[bge-reranker-base]]",
+      "all": {
+        "hit@6": 1.0,
+        "mrr@6": 0.944,
+        "n": 33
+      },
+      "case": {
+        "hit@6": 1.0,
+        "mrr@6": 0.967,
+        "n": 20
+      },
+      "provision": {
+        "hit@6": 1.0,
+        "mrr@6": 0.91,
+        "n": 13
+      }
+    }
+  ],
+  "score_separation": {
+    "bm25": {
+      "answerable": [
+        8.548,
+        29.29,
+        56.473
+      ],
+      "out_of_scope": [
+        8.802,
+        11.055,
+        14.306
+      ],
+      "out_of_scope_below_answerable_min": 0.0
+    },
+    "dense": {
+      "answerable": [
+        0.686,
+        0.786,
+        0.849
+      ],
+      "out_of_scope": [
+        0.459,
+        0.53,
+        0.618
+      ],
+      "out_of_scope_below_answerable_min": 1.0
+    },
+    "rerank[ms-marco-MiniLM-L-6-v2]": {
+      "answerable": [
+        0.786,
+        5.575,
+        9.127
+      ],
+      "out_of_scope": [
+        -11.025,
+        -10.243,
+        -9.665
+      ],
+      "out_of_scope_below_answerable_min": 1.0
+    },
+    "rerank[bge-reranker-base]": {
+      "answerable": [
+        0.26,
+        0.927,
+        1.0
+      ],
+      "out_of_scope": [
+        0.0,
+        0.212,
+        0.999
+      ],
+      "out_of_scope_below_answerable_min": 0.833
+    }
+  },
+  "per_question": {
+    "case-01": {
+      "question": "Must a law that deprives a person of personal liberty be just, fair and reasonable rather than arbitrary?",
+      "bm25": 2,
+      "dense": 1,
+      "hybrid": 1,
+      "rerank[ms-marco-MiniLM-L-6-v2]": 3,
+      "rerank[bge-reranker-base]": 4,
+      "evidence[hybrid]": 1,
+      "evidence[rerank[ms-marco-MiniLM-L-6-v2]]": 3,
+      "evidence[rerank[bge-reranker-base]]": 3
+    },
+    "case-02": {
+      "question": "Can the government impound a citizen's passport without giving them a hearing?",
+      "bm25": 1,
+      "dense": 1,
+      "hybrid": 1,
+      "rerank[ms-marco-MiniLM-L-6-v2]": 1,
+      "rerank[bge-reranker-base]": 1,
+      "evidence[hybrid]": 1,
+      "evidence[rerank[ms-marco-MiniLM-L-6-v2]]": 1,
+      "evidence[rerank[bge-reranker-base]]": 1
+    },
+    "case-03": {
+      "question": "Can the Supreme Court lay down guidelines against sexual harassment of women at the workplace when there is no law on it?",
+      "bm25": 1,
+      "dense": 1,
+      "hybrid": 1,
+      "rerank[ms-marco-MiniLM-L-6-v2]": 1,
+      "rerank[bge-reranker-base]": 1,
+      "evidence[hybrid]": 1,
+      "evidence[rerank[ms-marco-MiniLM-L-6-v2]]": 1,
+      "evidence[rerank[bge-reranker-base]]": 1
+    },
+    "case-04": {
+      "question": "Can an international convention such as CEDAW be read into fundamental rights when domestic law is silent?",
+      "bm25": 2,
+      "dense": 3,
+      "hybrid": 1,
+      "rerank[ms-marco-MiniLM-L-6-v2]": 1,
+      "rerank[bge-reranker-base]": 1,
+      "evidence[hybrid]": 1,
+      "evidence[rerank[ms-marco-MiniLM-L-6-v2]]": 1,
+      "evidence[rerank[bge-reranker-base]]": 1
+    },
+    "case-05": {
+      "question": "Can Parliament use its amending power to destroy the basic structure of the Constitution?",
+      "bm25": 1,
+      "dense": 1,
+      "hybrid": 1,
+      "rerank[ms-marco-MiniLM-L-6-v2]": 1,
+      "rerank[bge-reranker-base]": 1,
+      "evidence[hybrid]": 1,
+      "evidence[rerank[ms-marco-MiniLM-L-6-v2]]": 1,
+      "evidence[rerank[bge-reranker-base]]": 1
+    },
+    "case-06": {
+      "question": "Was Section 66A of the Information Technology Act struck down for restricting online speech?",
+      "bm25": 1,
+      "dense": 1,
+      "hybrid": 1,
+      "rerank[ms-marco-MiniLM-L-6-v2]": 2,
+      "rerank[bge-reranker-base]": 1,
+      "evidence[hybrid]": 1,
+      "evidence[rerank[ms-marco-MiniLM-L-6-v2]]": 2,
+      "evidence[rerank[bge-reranker-base]]": 1
+    },
+    "case-07": {
+      "question": "Is consensual sexual conduct between adults of the same sex a crime under Section 377 of the Indian Penal Code?",
+      "bm25": 1,
+      "dense": 1,
+      "hybrid": 1,
+      "rerank[ms-marco-MiniLM-L-6-v2]": 1,
+      "rerank[bge-reranker-base]": 1,
+      "evidence[hybrid]": 1,
+      "evidence[rerank[ms-marco-MiniLM-L-6-v2]]": 1,
+      "evidence[rerank[bge-reranker-base]]": 1
+    },
+    "case-08": {
+      "question": "Is the offence of adultery under Section 497 of the Indian Penal Code constitutional?",
+      "bm25": 1,
+      "dense": 1,
+      "hybrid": 1,
+      "rerank[ms-marco-MiniLM-L-6-v2]": 1,
+      "rerank[bge-reranker-base]": 1,
+      "evidence[hybrid]": 1,
+      "evidence[rerank[ms-marco-MiniLM-L-6-v2]]": 1,
+      "evidence[rerank[bge-reranker-base]]": 1
+    },
+    "case-09": {
+      "question": "Can the mother act as the natural guardian of a minor child while the father is alive?",
+      "bm25": 1,
+      "dense": 1,
+      "hybrid": 1,
+      "rerank[ms-marco-MiniLM-L-6-v2]": 1,
+      "rerank[bge-reranker-base]": 1,
+      "evidence[hybrid]": 1,
+      "evidence[rerank[ms-marco-MiniLM-L-6-v2]]": 1,
+      "evidence[rerank[bge-reranker-base]]": 1
+    },
+    "case-10": {
+      "question": "Do the precautionary principle and the polluter pays principle apply to tanneries discharging effluents into rivers?",
+      "bm25": 1,
+      "dense": 1,
+      "hybrid": 1,
+      "rerank[ms-marco-MiniLM-L-6-v2]": 1,
+      "rerank[bge-reranker-base]": 1,
+      "evidence[hybrid]": 1,
+      "evidence[rerank[ms-marco-MiniLM-L-6-v2]]": 1,
+      "evidence[rerank[bge-reranker-base]]": 1
+    },
+    "case-11": {
+      "question": "Is a proclamation of President's rule dismissing a state government open to judicial review?",
+      "bm25": 1,
+      "dense": 1,
+      "hybrid": 1,
+      "rerank[ms-marco-MiniLM-L-6-v2]": 1,
+      "rerank[bge-reranker-base]": 1,
+      "evidence[hybrid]": 1,
+      "evidence[rerank[ms-marco-MiniLM-L-6-v2]]": 1,
+      "evidence[rerank[bge-reranker-base]]": 1
+    },
+    "case-12": {
+      "question": "What rights do religious and linguistic minorities have to establish educational institutions, and can the State regulate their admissions and fees?",
+      "bm25": 1,
+      "dense": 2,
+      "hybrid": 1,
+      "rerank[ms-marco-MiniLM-L-6-v2]": 1,
+      "rerank[bge-reranker-base]": 1,
+      "evidence[hybrid]": 1,
+      "evidence[rerank[ms-marco-MiniLM-L-6-v2]]": 1,
+      "evidence[rerank[bge-reranker-base]]": 1
+    },
+    "case-13": {
+      "question": "Is the anti-defection law in the Tenth Schedule valid, and is the Speaker's decision on disqualification subject to judicial review?",
+      "bm25": 1,
+      "dense": 1,
+      "hybrid": 1,
+      "rerank[ms-marco-MiniLM-L-6-v2]": 1,
+      "rerank[bge-reranker-base]": 1,
+      "evidence[hybrid]": 1,
+      "evidence[rerank[ms-marco-MiniLM-L-6-v2]]": 1,
+      "evidence[rerank[bge-reranker-base]]": 1
+    },
+    "case-14": {
+      "question": "Can courts prescribe a fixed outer time limit within which criminal trials must be concluded?",
+      "bm25": 1,
+      "dense": 1,
+      "hybrid": 1,
+      "rerank[ms-marco-MiniLM-L-6-v2]": 1,
+      "rerank[bge-reranker-base]": 1,
+      "evidence[hybrid]": 1,
+      "evidence[rerank[ms-marco-MiniLM-L-6-v2]]": 1,
+      "evidence[rerank[bge-reranker-base]]": 1
+    },
+    "case-15": {
+      "question": "Can a manufacturer claim a refund of excise duty paid under a mistake of law if the burden was passed on to buyers?",
+      "bm25": 1,
+      "dense": 1,
+      "hybrid": 1,
+      "rerank[ms-marco-MiniLM-L-6-v2]": 1,
+      "rerank[bge-reranker-base]": 1,
+      "evidence[hybrid]": 1,
+      "evidence[rerank[ms-marco-MiniLM-L-6-v2]]": 1,
+      "evidence[rerank[bge-reranker-base]]": 1
+    },
+    "case-16": {
+      "question": "Can the Directive Principles be given absolute primacy over all fundamental rights by a constitutional amendment?",
+      "bm25": 2,
+      "dense": 1,
+      "hybrid": 1,
+      "rerank[ms-marco-MiniLM-L-6-v2]": 2,
+      "rerank[bge-reranker-base]": 1,
+      "evidence[hybrid]": 1,
+      "evidence[rerank[ms-marco-MiniLM-L-6-v2]]": 2,
+      "evidence[rerank[bge-reranker-base]]": 1
+    },
+    "case-17": {
+      "question": "Are laws placed in the Ninth Schedule immune from challenge if they violate the basic structure?",
+      "bm25": 1,
+      "dense": 1,
+      "hybrid": 1,
+      "rerank[ms-marco-MiniLM-L-6-v2]": 1,
+      "rerank[bge-reranker-base]": 1,
+      "evidence[hybrid]": 1,
+      "evidence[rerank[ms-marco-MiniLM-L-6-v2]]": 1,
+      "evidence[rerank[bge-reranker-base]]": 1
+    },
+    "case-18": {
+      "question": "Was a judicial direction transferring a criminal trial of a former Chief Minister to the High Court a nullity that took away his right of appeal?",
+      "bm25": 1,
+      "dense": 1,
+      "hybrid": 1,
+      "rerank[ms-marco-MiniLM-L-6-v2]": 1,
+      "rerank[bge-reranker-base]": 1,
+      "evidence[hybrid]": 1,
+      "evidence[rerank[ms-marco-MiniLM-L-6-v2]]": 1,
+      "evidence[rerank[bge-reranker-base]]": 1
+    },
+    "case-19": {
+      "question": "Is secularism a basic feature of the Constitution that can justify dismissing a state government?",
+      "bm25": 1,
+      "dense": 1,
+      "hybrid": 1,
+      "rerank[ms-marco-MiniLM-L-6-v2]": 1,
+      "rerank[bge-reranker-base]": 1,
+      "evidence[hybrid]": 1,
+      "evidence[rerank[ms-marco-MiniLM-L-6-v2]]": 1,
+      "evidence[rerank[bge-reranker-base]]": 1
+    },
+    "case-20": {
+      "question": "Does the right to privacy and sexual autonomy protect LGBT persons from criminalisation?",
+      "bm25": 1,
+      "dense": 1,
+      "hybrid": 1,
+      "rerank[ms-marco-MiniLM-L-6-v2]": 1,
+      "rerank[bge-reranker-base]": 1,
+      "evidence[hybrid]": 1,
+      "evidence[rerank[ms-marco-MiniLM-L-6-v2]]": 1,
+      "evidence[rerank[bge-reranker-base]]": 1
+    },
+    "prov-01": {
+      "question": "What does Article 14 provide?",
+      "bm25": null,
+      "dense": null,
+      "hybrid": null,
+      "rerank[ms-marco-MiniLM-L-6-v2]": null,
+      "rerank[bge-reranker-base]": null,
+      "evidence[hybrid]": 1,
+      "evidence[rerank[ms-marco-MiniLM-L-6-v2]]": 1,
+      "evidence[rerank[bge-reranker-base]]": 1
+    },
+    "prov-02": {
+      "question": "What freedoms does Article 19 guarantee?",
+      "bm25": null,
+      "dense": 8,
+      "hybrid": null,
+      "rerank[ms-marco-MiniLM-L-6-v2]": null,
+      "rerank[bge-reranker-base]": 1,
+      "evidence[hybrid]": 1,
+      "evidence[rerank[ms-marco-MiniLM-L-6-v2]]": 1,
+      "evidence[rerank[bge-reranker-base]]": 1
+    },
+    "prov-03": {
+      "question": "What does Article 21 say?",
+      "bm25": null,
+      "dense": null,
+      "hybrid": null,
+      "rerank[ms-marco-MiniLM-L-6-v2]": null,
+      "rerank[bge-reranker-base]": null,
+      "evidence[hybrid]": 1,
+      "evidence[rerank[ms-marco-MiniLM-L-6-v2]]": 1,
+      "evidence[rerank[bge-reranker-base]]": 1
+    },
+    "prov-04": {
+      "question": "Which provision gives the right to move the Supreme Court for enforcement of fundamental rights?",
+      "bm25": 1,
+      "dense": 1,
+      "hybrid": 1,
+      "rerank[ms-marco-MiniLM-L-6-v2]": 2,
+      "rerank[bge-reranker-base]": 3,
+      "evidence[hybrid]": 1,
+      "evidence[rerank[ms-marco-MiniLM-L-6-v2]]": 2,
+      "evidence[rerank[bge-reranker-base]]": 3
+    },
+    "prov-05": {
+      "question": "Which provision abolishes untouchability?",
+      "bm25": 2,
+      "dense": 1,
+      "hybrid": 1,
+      "rerank[ms-marco-MiniLM-L-6-v2]": 1,
+      "rerank[bge-reranker-base]": 1,
+      "evidence[hybrid]": 1,
+      "evidence[rerank[ms-marco-MiniLM-L-6-v2]]": 1,
+      "evidence[rerank[bge-reranker-base]]": 1
+    },
+    "prov-06": {
+      "question": "What rights does a person have when arrested, such as being told the grounds and produced before a magistrate?",
+      "bm25": 1,
+      "dense": 1,
+      "hybrid": 1,
+      "rerank[ms-marco-MiniLM-L-6-v2]": 1,
+      "rerank[bge-reranker-base]": 2,
+      "evidence[hybrid]": 1,
+      "evidence[rerank[ms-marco-MiniLM-L-6-v2]]": 1,
+      "evidence[rerank[bge-reranker-base]]": 2
+    },
+    "prov-07": {
+      "question": "Is free and compulsory education for children aged six to fourteen a fundamental right?",
+      "bm25": 1,
+      "dense": 1,
+      "hybrid": 1,
+      "rerank[ms-marco-MiniLM-L-6-v2]": 1,
+      "rerank[bge-reranker-base]": 1,
+      "evidence[hybrid]": 1,
+      "evidence[rerank[ms-marco-MiniLM-L-6-v2]]": 1,
+      "evidence[rerank[bge-reranker-base]]": 1
+    },
+    "prov-08": {
+      "question": "Is there equality of opportunity for citizens in public employment?",
+      "bm25": 1,
+      "dense": 1,
+      "hybrid": 1,
+      "rerank[ms-marco-MiniLM-L-6-v2]": 1,
+      "rerank[bge-reranker-base]": 1,
+      "evidence[hybrid]": 1,
+      "evidence[rerank[ms-marco-MiniLM-L-6-v2]]": 1,
+      "evidence[rerank[bge-reranker-base]]": 1
+    },
+    "prov-09": {
+      "question": "What happens when the constitutional machinery in a State fails?",
+      "bm25": null,
+      "dense": 6,
+      "hybrid": null,
+      "rerank[ms-marco-MiniLM-L-6-v2]": 5,
+      "rerank[bge-reranker-base]": 1,
+      "evidence[hybrid]": 6,
+      "evidence[rerank[ms-marco-MiniLM-L-6-v2]]": 3,
+      "evidence[rerank[bge-reranker-base]]": 1
+    },
+    "prov-10": {
+      "question": "Does the Constitution protect freedom of conscience and the right to practise and propagate religion?",
+      "bm25": 2,
+      "dense": 2,
+      "hybrid": 1,
+      "rerank[ms-marco-MiniLM-L-6-v2]": 1,
+      "rerank[bge-reranker-base]": 1,
+      "evidence[hybrid]": 1,
+      "evidence[rerank[ms-marco-MiniLM-L-6-v2]]": 1,
+      "evidence[rerank[bge-reranker-base]]": 1
+    },
+    "prov-11": {
+      "question": "Can High Courts issue writs such as habeas corpus and mandamus?",
+      "bm25": 1,
+      "dense": 1,
+      "hybrid": 1,
+      "rerank[ms-marco-MiniLM-L-6-v2]": 2,
+      "rerank[bge-reranker-base]": 1,
+      "evidence[hybrid]": 1,
+      "evidence[rerank[ms-marco-MiniLM-L-6-v2]]": 2,
+      "evidence[rerank[bge-reranker-base]]": 1
+    },
+    "prov-12": {
+      "question": "What duties does the Constitution place on every citizen?",
+      "bm25": 8,
+      "dense": 1,
+      "hybrid": 2,
+      "rerank[ms-marco-MiniLM-L-6-v2]": 1,
+      "rerank[bge-reranker-base]": 1,
+      "evidence[hybrid]": 2,
+      "evidence[rerank[ms-marco-MiniLM-L-6-v2]]": 1,
+      "evidence[rerank[bge-reranker-base]]": 1
+    },
+    "prov-13": {
+      "question": "Is discrimination on grounds of religion, race, caste, sex or place of birth prohibited?",
+      "bm25": 1,
+      "dense": 1,
+      "hybrid": 1,
+      "rerank[ms-marco-MiniLM-L-6-v2]": 1,
+      "rerank[bge-reranker-base]": 1,
+      "evidence[hybrid]": 1,
+      "evidence[rerank[ms-marco-MiniLM-L-6-v2]]": 1,
+      "evidence[rerank[bge-reranker-base]]": 1
+    }
+  }
+}

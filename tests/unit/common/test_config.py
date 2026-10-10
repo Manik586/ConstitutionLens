@@ -144,6 +144,19 @@ def test_llm_settings_default_to_disabled_and_accept_env_overrides(monkeypatch):
     assert (llm.provider, llm.model, llm.base_url) == ("openai_compatible", "qwen2.5:7b-instruct", "http://localhost:11434/v1")
 
 
+def test_llm_consent_switches_can_be_set_per_machine_from_the_environment(monkeypatch):
+    # The committed YAML keeps the safe defaults; a deployment opts in through .env.
+    llm = load_settings(Path("configs/v1.yaml")).llm
+    assert (llm.allow_remote, llm.require_api_key) == (False, True)
+    monkeypatch.setenv("LLM_ALLOW_REMOTE", "true")
+    monkeypatch.setenv("LLM_REQUIRE_API_KEY", "false")
+    llm = load_settings(Path("configs/v1.yaml")).llm
+    assert (llm.allow_remote, llm.require_api_key) == (True, False)
+    monkeypatch.setenv("LLM_ALLOW_REMOTE", "perhaps")
+    with pytest.raises(ConfigError):
+        load_settings(Path("configs/v1.yaml"))
+
+
 @pytest.mark.parametrize("section", ["llm: {temperature: 3}", "llm: {provider: gpt}", "llm: {timeout_seconds: 0}",
                                      "llm: {api_key: secret}", "generation: {prompt_version: v9}"])
 def test_invalid_llm_settings_raise_config_error(tmp_path, section):

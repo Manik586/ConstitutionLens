@@ -481,6 +481,41 @@ All are heuristic, configurable, and to be revisited with the evaluation set.
 
 ---
 
+## D31 — Retrieval evaluation set; cross-encoder reranking measured and left off (Experiment C)
+
+**Context:** Semantic search quality had not been measured; FR-08 (cross-encoder reranking) was open. Without numbers, changing models or adding stages would be guesswork.
+
+**Decision:**
+- **Question set:** `data/eval/retrieval_v1.jsonl` has 39 questions.
+  - 20 case questions describe a holding without naming the case; any passage of the right judgment counts as relevant.
+  - 13 provision questions cite or describe an Article; only the Constitution's own text for that Article counts, not a judgment quoting it.
+  - 6 out-of-scope questions check whether scores can signal "nothing relevant".
+- **Code:** `evaluation/retrieval_metrics.py` computes hit@k, MRR and score separation. `scripts/evaluate_retrieval.py` runs every mode and also scores the final top_k evidence the UI shows, then writes a JSON report.
+- **Reranker:** `reranking/cross_encoder.py` (sentence-transformers CrossEncoder) with a `reranking` config section, **disabled by default**.
+
+**Results (constitutional-core, BGE-small embeddings, CPU, 2026-10-11):**
+
+| Mode | hit@1 | hit@5 | MRR@10 | provision hit@5 | s/query |
+|---|---|---|---|---|---|
+| BM25 | 0.70 | 0.85 | 0.78 | 0.61 | 0.001 |
+| dense | 0.79 | 0.88 | 0.84 | 0.69 | 0.03 |
+| hybrid (RRF) | 0.85 | 0.88 | 0.86 | 0.69 | 0.03 |
+| hybrid + ms-marco-MiniLM-L-6-v2 (30 cands) | 0.73 | 0.91 | 0.80 | 0.77 | 2.4 |
+| hybrid + bge-reranker-base (30 cands) | 0.85 | 0.94 | 0.88 | 0.85 | 13.4 |
+
+- **Final evidence:** the top 6 after Phase 4 selection contained a relevant passage for all 33 answerable questions (hit@6 = 1.00) in every mode. Reranking did not change what answers are built from on this set.
+- **Score separation:** the rank-1 dense score separated answerable from out-of-scope questions perfectly. Answerable scores were at least 0.686; out-of-scope scores were at most 0.618.
+- **Raw-retrieval misses:** "What does Article 14 / 21 provide?" do not reach the Article's own text in any top 10, because judgments discussing it outrank it. The provision lookup in Phase 4 covers this.
+
+**Consequences:**
+- Reranking stays off. bge-reranker-base adds about 13 s per query on this CPU for no change in the final evidence. Revisit it with a GPU, a larger or harder question set, or passage-level judgements.
+- `min_dense_score` could be calibrated near 0.64–0.65, but six out-of-scope questions are too few to set it with confidence.
+- The document-level metric saturates at the evidence level. The next evaluation step is passage-level relevance judgements.
+
+**Reference:** SRS §34.1, FR-08 (Experiment C); D18–D20.
+
+---
+
 ## Open decisions (not yet made — flagged for the next phase)
 
 - **Phase 2 labelling gaps (affect Phase 4 answers).** Some Constitution article headings are missed (Articles 4, 65, 174, 325, 368, 369, …: long or footnote-marked titles), and some opinion-author lines are missed ("BHAGWATI, J.-The …", "DR. D.Y. CHANDRACHUD, J."). Phase 4 reports a missing Article rather than inventing it, and hides author names by default (D21). Fixing Phase 2 requires re-chunking and an index rebuild.

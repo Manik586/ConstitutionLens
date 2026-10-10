@@ -18,7 +18,7 @@ from constitutional_evidence_rag.common import config as config_module
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 _OVERRIDE_VARS = ("LOG_LEVEL", "DATA_RAW_DIR", "DATA_PROCESSED_DIR", "INDEXES_DIR", "CONFIG_PATH",
-                  "LLM_PROVIDER", "LLM_MODEL", "LLM_BASE_URL", "LLM_API_KEY",
+                  "LLM_PROVIDER", "LLM_MODEL", "LLM_BASE_URL", "LLM_API_KEY", "LLM_ALLOW_REMOTE", "LLM_REQUIRE_API_KEY",
                   "CER_CONFIG", "CER_DATA_ROOT", "UPLOADS_DIR", "MODELS_DIR", "DEFAULT_CORPUS_ID",
                   "UPLOAD_MAX_FILE_SIZE_MB", "UPLOAD_MAX_DOCUMENTS", "UPLOAD_MAX_TOTAL_SIZE_MB", "UPLOAD_MAX_PAGES")
 

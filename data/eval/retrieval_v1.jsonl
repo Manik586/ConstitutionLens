@@ -1,0 +1,39 @@
+{"id": "case-01", "kind": "case", "question": "Must a law that deprives a person of personal liberty be just, fair and reasonable rather than arbitrary?", "relevant_documents": ["JUDG-4fbe72e421ed"]}
+{"id": "case-02", "kind": "case", "question": "Can the government impound a citizen's passport without giving them a hearing?", "relevant_documents": ["JUDG-4fbe72e421ed"]}
+{"id": "case-03", "kind": "case", "question": "Can the Supreme Court lay down guidelines against sexual harassment of women at the workplace when there is no law on it?", "relevant_documents": ["JUDG-b44b6ba1ff4c"]}
+{"id": "case-04", "kind": "case", "question": "Can an international convention such as CEDAW be read into fundamental rights when domestic law is silent?", "relevant_documents": ["JUDG-b44b6ba1ff4c"]}
+{"id": "case-05", "kind": "case", "question": "Can Parliament use its amending power to destroy the basic structure of the Constitution?", "relevant_documents": ["JUDG-375cab464fa9", "JUDG-7ffb393756bf", "JUDG-166c052632bf"]}
+{"id": "case-06", "kind": "case", "question": "Was Section 66A of the Information Technology Act struck down for restricting online speech?", "relevant_documents": ["JUDG-ee8b55c74312"]}
+{"id": "case-07", "kind": "case", "question": "Is consensual sexual conduct between adults of the same sex a crime under Section 377 of the Indian Penal Code?", "relevant_documents": ["JUDG-f05e8c07bb47"]}
+{"id": "case-08", "kind": "case", "question": "Is the offence of adultery under Section 497 of the Indian Penal Code constitutional?", "relevant_documents": ["JUDG-368fad2f2480"]}
+{"id": "case-09", "kind": "case", "question": "Can the mother act as the natural guardian of a minor child while the father is alive?", "relevant_documents": ["JUDG-075a2fb401ef"]}
+{"id": "case-10", "kind": "case", "question": "Do the precautionary principle and the polluter pays principle apply to tanneries discharging effluents into rivers?", "relevant_documents": ["JUDG-2532c82d423e"]}
+{"id": "case-11", "kind": "case", "question": "Is a proclamation of President's rule dismissing a state government open to judicial review?", "relevant_documents": ["JUDG-1b45a3611253"]}
+{"id": "case-12", "kind": "case", "question": "What rights do religious and linguistic minorities have to establish educational institutions, and can the State regulate their admissions and fees?", "relevant_documents": ["JUDG-2d4b81d532eb"]}
+{"id": "case-13", "kind": "case", "question": "Is the anti-defection law in the Tenth Schedule valid, and is the Speaker's decision on disqualification subject to judicial review?", "relevant_documents": ["JUDG-387303bcde89"]}
+{"id": "case-14", "kind": "case", "question": "Can courts prescribe a fixed outer time limit within which criminal trials must be concluded?", "relevant_documents": ["JUDG-3f5f7c0c3afd"]}
+{"id": "case-15", "kind": "case", "question": "Can a manufacturer claim a refund of excise duty paid under a mistake of law if the burden was passed on to buyers?", "relevant_documents": ["JUDG-6367d7167791"]}
+{"id": "case-16", "kind": "case", "question": "Can the Directive Principles be given absolute primacy over all fundamental rights by a constitutional amendment?", "relevant_documents": ["JUDG-7ffb393756bf"]}
+{"id": "case-17", "kind": "case", "question": "Are laws placed in the Ninth Schedule immune from challenge if they violate the basic structure?", "relevant_documents": ["JUDG-166c052632bf"]}
+{"id": "case-18", "kind": "case", "question": "Was a judicial direction transferring a criminal trial of a former Chief Minister to the High Court a nullity that took away his right of appeal?", "relevant_documents": ["JUDG-da3df789937b"]}
+{"id": "case-19", "kind": "case", "question": "Is secularism a basic feature of the Constitution that can justify dismissing a state government?", "relevant_documents": ["JUDG-1b45a3611253"]}
+{"id": "case-20", "kind": "case", "question": "Does the right to privacy and sexual autonomy protect LGBT persons from criminalisation?", "relevant_documents": ["JUDG-f05e8c07bb47", "JUDG-368fad2f2480"]}
+{"id": "prov-01", "kind": "provision", "question": "What does Article 14 provide?", "relevant_articles": ["14"]}
+{"id": "prov-02", "kind": "provision", "question": "What freedoms does Article 19 guarantee?", "relevant_articles": ["19"]}
+{"id": "prov-03", "kind": "provision", "question": "What does Article 21 say?", "relevant_articles": ["21"]}
+{"id": "prov-04", "kind": "provision", "question": "Which provision gives the right to move the Supreme Court for enforcement of fundamental rights?", "relevant_articles": ["32"]}
+{"id": "prov-05", "kind": "provision", "question": "Which provision abolishes untouchability?", "relevant_articles": ["17"]}
+{"id": "prov-06", "kind": "provision", "question": "What rights does a person have when arrested, such as being told the grounds and produced before a magistrate?", "relevant_articles": ["22"]}
+{"id": "prov-07", "kind": "provision", "question": "Is free and compulsory education for children aged six to fourteen a fundamental right?", "relevant_articles": ["21A"]}
+{"id": "prov-08", "kind": "provision", "question": "Is there equality of opportunity for citizens in public employment?", "relevant_articles": ["16"]}
+{"id": "prov-09", "kind": "provision", "question": "What happens when the constitutional machinery in a State fails?", "relevant_articles": ["356"]}
+{"id": "prov-10", "kind": "provision", "question": "Does the Constitution protect freedom of conscience and the right to practise and propagate religion?", "relevant_articles": ["25"]}
+{"id": "prov-11", "kind": "provision", "question": "Can High Courts issue writs such as habeas corpus and mandamus?", "relevant_articles": ["226"]}
+{"id": "prov-12", "kind": "provision", "question": "What duties does the Constitution place on every citizen?", "relevant_articles": ["51A"]}
+{"id": "prov-13", "kind": "provision", "question": "Is discrimination on grounds of religion, race, caste, sex or place of birth prohibited?", "relevant_articles": ["15"]}
+{"id": "none-01", "kind": "out_of_scope", "question": "Who won the 2011 Cricket World Cup final?"}
+{"id": "none-02", "kind": "out_of_scope", "question": "How do I bake sourdough bread at home?"}
+{"id": "none-03", "kind": "out_of_scope", "question": "What is the current GST rate on gold jewellery?"}
+{"id": "none-04", "kind": "out_of_scope", "question": "What are the parking rules for two-wheelers in Mumbai?"}
+{"id": "none-05", "kind": "out_of_scope", "question": "How does photosynthesis convert sunlight into chemical energy?"}
+{"id": "none-06", "kind": "out_of_scope", "question": "Which programming language is best for building mobile apps?"}

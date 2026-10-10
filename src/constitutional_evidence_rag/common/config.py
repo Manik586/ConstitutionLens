@@ -142,6 +142,21 @@ class RetrievalSettings(BaseModel):
         return self
 
 
+class RerankingSettings(BaseModel):
+    """SRS FR-08 cross-encoder reranking (Experiment C). Off by default: when enabled, the
+    hybrid candidate pool is re-scored by a cross-encoder that reads the question and each
+    passage together. The score is query relevance only (no source-type weight, Invariant 1)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = False
+    model_name: str = "BAAI/bge-reranker-base"
+    candidates: int = Field(default=30, ge=1)  # hybrid pool size handed to the cross-encoder
+    max_length: int = Field(default=512, ge=32)  # tokens of question + passage the model reads
+    batch_size: int = Field(default=16, ge=1)
+    device: str = "cpu"
+
+
 class EvidenceSettings(BaseModel):
     """Evidence selection above retrieval (Phase 4 as scoped in D20).
 
@@ -236,6 +251,7 @@ class Settings(BaseModel):
     chunking: ChunkingSettings = ChunkingSettings()
     embedding: EmbeddingSettings = EmbeddingSettings()
     retrieval: RetrievalSettings = RetrievalSettings()
+    reranking: RerankingSettings = RerankingSettings()
     evidence: EvidenceSettings = EvidenceSettings()
     generation: GenerationSettings = GenerationSettings()
     llm: LLMSettings = LLMSettings()
@@ -266,6 +282,11 @@ def _apply_env_overrides(raw: dict[str, Any]) -> dict[str, Any]:
     for env, key in (("LLM_PROVIDER", "provider"), ("LLM_MODEL", "model"), ("LLM_BASE_URL", "base_url")):
         if os.environ.get(env):
             raw.setdefault("llm", {})[key] = os.environ[env]
+    # Deployment-specific consent switches: set per machine in .env so the committed YAML keeps
+    # the safe defaults (allow_remote: false). Pydantic validates the value ("true"/"false"/...).
+    for env, key in (("LLM_ALLOW_REMOTE", "allow_remote"), ("LLM_REQUIRE_API_KEY", "require_api_key")):
+        if os.environ.get(env):
+            raw.setdefault("llm", {})[key] = os.environ[env].strip()
     # Phase 7 (D27)
     for env, key in (("CER_DATA_ROOT", "root"), ("UPLOADS_DIR", "uploads_dir"), ("MODELS_DIR", "models_dir")):
         if os.environ.get(env):
