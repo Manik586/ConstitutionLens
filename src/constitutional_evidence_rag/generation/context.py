@@ -23,7 +23,8 @@ from constitutional_evidence_rag.common.models import SourceType
 
 TRUNCATION_MARK = " [… text truncated for length]"
 _DOC_TYPE = {SourceType.CONSTITUTIONAL_TEXT: "constitutional text", SourceType.JUDGMENT: "judgment",
-             SourceType.AMENDMENT: "constitutional amendment material"}
+             SourceType.AMENDMENT: "constitutional amendment material",
+             SourceType.USER_DOCUMENT: "uploaded document (user-supplied, unverified)"}
 
 
 @dataclass(frozen=True)

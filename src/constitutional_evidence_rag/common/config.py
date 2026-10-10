@@ -18,7 +18,10 @@ import yaml
 from dotenv import load_dotenv
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
+from constitutional_evidence_rag.common.models import CURATED_CORPUS_ID, CorpusId
+
 DEFAULT_CONFIG_PATH = Path("configs/v1.yaml")
+REPO_CONFIG_PATH = Path(__file__).resolve().parents[3] / "configs" / "v1.yaml"  # src/<pkg>/common/config.py -> repo
 
 
 class ConfigError(Exception):
@@ -46,6 +49,41 @@ class PathsSettings(BaseModel):
     data_raw_dir: Path
     data_processed_dir: Path
     indexes_dir: Path = Path("indexes")  # Phase 3; per-corpus subdirectories (D15, FR-05a)
+    uploads_dir: Path = Path("data/uploads")  # Phase 7: original uploaded PDFs, data/uploads/<corpus_id>/
+    models_dir: Path | None = None  # Phase 7: model cache (sets HF_HOME for the service if not already set)
+    # Phase 7: when set (CER_DATA_ROOT), every relative path above resolves against it instead of
+    # the process working directory. Unset keeps the historical CWD-relative behaviour.
+    root: Path | None = None
+
+    @model_validator(mode="after")
+    def _resolve_against_root(self) -> PathsSettings:
+        if self.root is not None:
+            for name in ("data_raw_dir", "data_processed_dir", "indexes_dir", "uploads_dir", "models_dir"):
+                value = getattr(self, name)
+                if value is not None and not value.is_absolute():
+                    object.__setattr__(self, name, self.root / value)
+        return self
+
+
+class CorpusSettings(BaseModel):
+    """Phase 7: which corpus scripts and the service use when none is named (D27)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    default_corpus_id: CorpusId = CURATED_CORPUS_ID
+
+
+class UploadSettings(BaseModel):
+    """Phase 7: limits for user-uploaded PDFs (D27). Enforced per file; one bad file never
+    aborts the others."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    max_file_size_mb: float = Field(default=20, gt=0)
+    max_documents_per_corpus: int = Field(default=20, ge=1)
+    max_total_size_mb: float = Field(default=200, gt=0)
+    max_pages_per_document: int = Field(default=500, ge=1)
+    allowed_extensions: list[str] = Field(default_factory=lambda: [".pdf"], min_length=1)
 
 
 class ChunkingSettings(BaseModel):
@@ -202,6 +240,8 @@ class Settings(BaseModel):
     generation: GenerationSettings = GenerationSettings()
     llm: LLMSettings = LLMSettings()
     evidence_validation: EvidenceValidationSettings = EvidenceValidationSettings()
+    corpus: CorpusSettings = CorpusSettings()
+    uploads: UploadSettings = UploadSettings()
 
 
 def _apply_env_overrides(raw: dict[str, Any]) -> dict[str, Any]:
@@ -226,6 +266,16 @@ def _apply_env_overrides(raw: dict[str, Any]) -> dict[str, Any]:
     for env, key in (("LLM_PROVIDER", "provider"), ("LLM_MODEL", "model"), ("LLM_BASE_URL", "base_url")):
         if os.environ.get(env):
             raw.setdefault("llm", {})[key] = os.environ[env]
+    # Phase 7 (D27)
+    for env, key in (("CER_DATA_ROOT", "root"), ("UPLOADS_DIR", "uploads_dir"), ("MODELS_DIR", "models_dir")):
+        if os.environ.get(env):
+            raw["paths"][key] = os.environ[env]
+    if os.environ.get("DEFAULT_CORPUS_ID"):
+        raw.setdefault("corpus", {})["default_corpus_id"] = os.environ["DEFAULT_CORPUS_ID"]
+    for env, key in (("UPLOAD_MAX_FILE_SIZE_MB", "max_file_size_mb"), ("UPLOAD_MAX_DOCUMENTS", "max_documents_per_corpus"),
+                     ("UPLOAD_MAX_TOTAL_SIZE_MB", "max_total_size_mb"), ("UPLOAD_MAX_PAGES", "max_pages_per_document")):
+        if os.environ.get(env):
+            raw.setdefault("uploads", {})[key] = os.environ[env]
 
     return raw
 
@@ -240,7 +290,9 @@ def load_settings(config_path: Path | None = None) -> Settings:
     """
     load_dotenv()
 
-    path = config_path or Path(os.environ.get("CONFIG_PATH", DEFAULT_CONFIG_PATH))
+    path = config_path or Path(os.environ.get("CER_CONFIG") or os.environ.get("CONFIG_PATH") or DEFAULT_CONFIG_PATH)
+    if config_path is None and path == DEFAULT_CONFIG_PATH and not path.exists() and REPO_CONFIG_PATH.exists():
+        path = REPO_CONFIG_PATH  # Phase 7: work from any directory, not only the repo root
     if not path.exists():
         raise ConfigError(f"Config file not found: {path}")
 

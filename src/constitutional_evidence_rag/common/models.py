@@ -31,16 +31,19 @@ data/processed/, so the pattern deliberately excludes '/', '.', and '..'."""
 
 
 class SourceType(str, Enum):
-    """V1 source types (SRS Section 21.1, FR-04).
+    """Kinds of source document (SRS Section 21.1, FR-04; D27).
 
-    Do not add V2's authority levels (constitutional text / SC holding /
-    other judgment content / secondary material) here — that taxonomy
-    is a separate, later concern. See SRS Section 20.
+    CONSTITUTIONAL_TEXT / AMENDMENT / JUDGMENT describe the curated corpus.
+    USER_DOCUMENT is one neutral type for PDFs a user uploads into their own
+    corpus (Phase 7): no structure is assumed and no authority is implied — it is
+    not part of the SRS Section 20 authority taxonomy, which remains a separate,
+    later concern.
     """
 
     CONSTITUTIONAL_TEXT = "constitutional_text"
     AMENDMENT = "amendment"
     JUDGMENT = "judgment"
+    USER_DOCUMENT = "user_document"  # Phase 7: user-uploaded PDF (D27)
 
 
 class DocumentMetadata(BaseModel):

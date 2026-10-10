@@ -1,6 +1,6 @@
-# Minimal single-service setup for Phase 1.
-# No database or UI service yet — those are added in later phases
-# (SQLite is embedded/file-based, and no web UI exists until Phase 7).
+# Single service: the API server (Phase 7; D29). SQLite/JSONL storage is file-based, so there
+# is no database container (DECISIONS D6). No authentication: keep this deployment private
+# (SRS §40.3); do not expose the upload API publicly.
 
 services:
   app:
@@ -10,8 +10,25 @@ services:
     container_name: constitutional-evidence-rag
     env_file:
       - .env
+    environment:
+      CER_DATA_ROOT: /app
+      CER_CONFIG: /app/configs/v1.yaml
+      PORT: "8000"                     # container port; the host port is set below
+    ports:
+      # Published on the loopback interface only (Phase 8, D30): the UI and API have no
+      # authentication, so by default only this machine can reach them. To expose them on a
+      # trusted private network, deliberately change 127.0.0.1 to that interface's address
+      # (or 0.0.0.0) — and put access controls in front first (see README "Limitations").
+      - "127.0.0.1:${HOST_PORT:-8000}:8000"
     volumes:
-      - ./data:/app/data
-      - ./configs:/app/configs
-      - ./indexes:/app/indexes   # Phase 3 BM25/dense indexes (gitignored)
-      - ./models:/app/models     # embedding model cache (HF_HOME)
+      - ./data:/app/data               # raw/, processed/, uploads/ (uploads and processed are gitignored)
+      - ./indexes:/app/indexes         # per-corpus BM25/dense indexes (gitignored)
+      - ./models:/app/models           # embedding model cache (HF_HOME; gitignored)
+      - ./configs:/app/configs:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 60s
+      retries: 3
+    restart: unless-stopped

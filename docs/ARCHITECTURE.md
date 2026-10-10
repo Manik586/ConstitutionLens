@@ -74,13 +74,15 @@ V1 is a complete, independently evaluable system (SRS §41.1: "at the end of Pha
 | Phase 5 evidence context builder and grounding prompt (`grounded-v1`) | `src/.../generation/context.py`, `prompts.py` | FR-10, FR-11, §38 prompt injection (D24) |
 | Phase 5 LLM answer generator (parse, per-statement citation/quote validation) | `src/.../generation/llm_generator.py`; validator `generation/grounding.py` | FR-10–FR-12, NFR-02 (D25) |
 | Phase 6 claim-level evidence-support check (claim extraction, support validator, answer policy) | `src/.../validation/claims.py`, `support.py`, `policy.py`; model `common/validation.py` | FR-13 (Basic Evidence Check), NFR-02 (D26) |
+| Phase 7 corpus registry, uploads, atomic index build, service | `src/.../corpora/` (`models.py`, `errors.py`, `registry.py`, `uploads.py`, `indexing.py`, `service.py`) | FR-COL-01–06, FR-05a, NFR-07 (D27, D28) |
+| Phase 7 HTTP API | `src/.../api/app.py` | §40 (D29) |
+| Phase 8 ConstitutionLens web UI (static assets, `/config`, UI security headers) | `src/.../web/static/` (`index.html`, `app.css`, `js/api.js`, `state.js`, `render.js`, `main.js`, `motion.js`, `vendor/gsap.min.js`); routes in `api/app.py` | §21.4 (FR-15–FR-17), §38 (D30) |
 | Citation linkage and grounding validation | `src/.../citations/citation_builder.py`, `src/.../generation/grounding.py` | §21.3 (FR-12), NFR-02 (D22) |
 | Basic Evidence Check | `src/.../evidence/basic_check.py` | §21.3 (FR-13) |
-| Non-advice framing (cross-cutting, not a pipeline stage) | Applied in `generation/prompts.py` and `app/` UI copy | §21.3 (FR-14), §21.4 (FR-17) |
-| UI | `app/streamlit_app.py`, `app/components/` | §21.4 (FR-15–FR-17) |
+| Non-advice framing (cross-cutting, not a pipeline stage) | Applied in `generation/prompts.py` and the web UI copy (`web/static/index.html` banner, `render.js`) | §21.3 (FR-14), §21.4 (FR-17) |
 | Retrieval evaluation | `src/.../evaluation/retrieval_metrics.py`, `runner.py`, `reports.py` | §34.1 |
 
-FR-14 and FR-17 are **cross-cutting constraints**, not stages in the chain (RAD §7.1) — they gate every generated string and every UI screen, not one point in the pipeline. There is no single module that "implements" them; they're a review criterion applied to `generation/` output and all of `app/`.
+FR-14 and FR-17 are **cross-cutting constraints**, not stages in the chain (RAD §7.1) — they gate every generated string and every UI screen, not one point in the pipeline. There is no single module that "implements" them; they're a review criterion applied to `generation/` output and all of the web UI (`web/static/`).
 
 ### 3.2 Corpus model and the generic ingestion interface (V1, SRS v4.2 FR-01a)
 
@@ -178,7 +180,9 @@ Phase 4  Retrieval                Query -> BM25 + Dense -> Hybrid (RRF) -> Reran
 Phase 5  Grounded generation      Final Evidence + Query -> Context Builder -> LLM -> Grounded Answer -> Citation Validation
 Phase 6  Evidence-support check   Draft Answer -> Claim Extraction -> Claim->Citation Mapping -> Support Validation
                                   -> remove / flag unsupported claims -> Final Grounded Answer   (section 3.6)
-Phase 7+ Evaluation, UI           (not built)
+Phase 7  User corpora + API      upload -> build (per-corpus indexes) -> query, HTTP API (section 3.7)
+Phase 8  Web UI (ConstitutionLens) browser UI over the Phase 7 API (section 3.8)
+Next     Evaluation, deployment hardening (not built)
 ```
 
 Phase 5 is a second backend behind Phase 4's `AnswerGenerator` interface. Retrieval, evidence selection and the confidence gate are unchanged, and the extractive backend remains the default.
@@ -284,6 +288,52 @@ All thresholds are heuristic and configurable (`evidence_validation` in `configs
 
 **Not done by Phase 6:** legal correctness, precedent validity or good-law status, judicial hierarchy, resolving conflicting precedents, or telling a party's argument from the Court's holding (a passage stating an argument still "supports" a claim that repeats it). Those are outside the project (SRS §11) or belong to V2: NLI verification FR-18–FR-25, and holding-vs-argument FR-JS-01–04.
 
+### 3.7 Phase 7: user-provided corpora (D27, D28, D29)
+
+A **corpus** is an isolated set of documents with its own uploads, processed documents, chunks, BM25 index, dense/FAISS index and metadata, identified by a `corpus_id` (1–64 of `[a-z0-9-]`). `constitutional-core` is the curated corpus. It is **reserved**: it can't be created, uploaded to, rebuilt or deleted through the user-corpus service or API, and its status is inferred from its files. A **user corpus** holds uploaded PDFs of type `USER_DOCUMENT`: no structure is assumed and no authority is implied.
+
+```
+data/uploads/<corpus_id>/      <sha256[:12]>.pdf + uploads.json (display titles)      user corpora only
+data/processed/<corpus_id>/    corpus.json · metadata.jsonl · documents.jsonl · chunks.jsonl
+indexes/<corpus_id>/{bm25,dense}/                                                   (unchanged layout)
+```
+
+```
+upload ─► corpora/uploads.py   per-file checks (extension + %PDF- magic, size, count/total, pages,
+          │                    encrypted/corrupt/empty, no extractable text) ─► stored by hash
+          ▼
+build  ─► corpora/service.py   lock ─► PROCESSING ─► ingest (Phase 1, unchanged) ─► chunk (Phase 2,
+          │                    unstructured page-aware fallback) ─► corpora/indexing.py: BM25 + dense
+          │                    built in staging, swapped in together ─► READY   (any failure ─► FAILED,
+          │                    previous indexes untouched)
+          ▼
+query  ─► status must be READY (checked before any index is opened) ─► AnswerPipeline bound to the
+          corpus (Phases 4-6 unchanged; asserts every evidence item is from this corpus) ─► Answer
+```
+
+**Isolation:**
+- Every storage path is `<root>/<corpus_id>/…`.
+- `Retriever.load` opens one corpus's chunks and indexes, and the service checks every loaded chunk's `corpus_id`.
+- The answer pipeline refuses evidence from another corpus before generation (`CorpusIsolationError`).
+- Retriever caches are keyed by `corpus_id` and invalidated whenever that corpus changes.
+- Citations reference evidence items, which carry `corpus_id`. The Answer schema is unchanged.
+
+**Statuses:** `uploaded` (documents not yet built), `processing`, `ready`, `failed` (with a short, user-safe `error`). On service startup, a corpus left in `processing` by a crash becomes `failed`, and stale lock files are removed. A per-corpus lock (in-process and on disk) prevents two concurrent builds.
+
+**Entry points:**
+- The CLI scripts take `--corpus-id` (default `corpus.default_corpus_id`); without it they behave exactly as before.
+- The HTTP API (`api/app.py`, optional `[api]` extra) is a thin layer over the same service.
+- Builds run on one background worker thread; a job queue can replace it later without touching retrieval.
+
+**Expected UI flow:** `POST /corpora` → `POST /corpora/{id}/documents` → `POST /corpora/{id}/build` → poll `GET /corpora/{id}` until `ready` or `failed` → `POST /corpora/{id}/query` → show citations (`[E1] file.pdf — Page 7`) and `validation`.
+
+**Limits and privacy:**
+- PDF only, with a text layer. Scanned PDFs are rejected: there is no OCR for uploads.
+- Size, count and page limits come from `uploads` in `configs/v1.yaml`.
+- With `generate`, retrieved user-document text is sent to the configured LLM provider (the `allow_remote` guard still applies).
+- User-corpus answers carry the notice "Answers are generated from your uploaded documents only; they are not legal advice and not an authoritative statement of law."
+- **No authentication**: deploy the API only where every user is trusted (SRS §40.3 `private` profile).
+
 **Build and query:**
 ```
 python scripts/build_indexes.py                    # BM25 + embeddings + FAISS (first run downloads the model)
@@ -292,6 +342,38 @@ python scripts/query.py "What does Article 21 provide?"            # hybrid
 python scripts/query.py "Article 19(2)" --mode bm25 --top-k 5      # bm25 | dense | hybrid
 python scripts/query.py "basic structure" --json                   # RetrievedChunk JSON lines
 ```
+
+---
+
+### 3.8 Phase 8: ConstitutionLens web UI (D30)
+
+A browser UI over the Phase 7 API. It holds no RAG logic and reads no files: every fact it shows comes from an API response.
+
+```
+Browser (same origin)                         FastAPI app (api/app.py)
+  index.html + app.css + js/*.js  <-- GET /, /static/*   (CSP, nosniff, no-referrer on these only)
+  api.js  (only module that fetches)
+    GET  /config                    --> generation_available, upload limits, reserved ids, query options
+    GET  /corpora, /corpora/{id}    --> list + status (polled 2 s for 30 s, then 5 s; stops on ready/failed,
+                                        corpus switch, hidden tab; gives up after 5 network failures)
+    POST /corpora                   --> create (name -> suggested id, editable)
+    POST /corpora/{id}/documents    --> multipart "files"; per-file accepted / unchanged / rejected + reason
+    POST /corpora/{id}/build        --> 202, then polling
+    POST /corpora/{id}/query        --> {question, mode: "hybrid", top_k, generate}; AbortController + timeout
+    DELETE /corpora/{id}            --> only for non-reserved corpora, after a <dialog> confirmation
+```
+
+**Rendering:** three distinct sections.
+- **Answer:** `claims[].statement`, where each `[E#]` or `[#]` marker becomes a button to its evidence card. Markers resolve through `citations[]` according to `citation_style`.
+- **Evidence:** `evidence[]` with id, `document_title`, pages and `chunk.corpus_id`, plus the excerpt.
+- **Evidence-support check:** `validation.claims[]` with the status and reason as returned. `kept: false` claims are listed separately as removed or flagged.
+
+All server text goes through `textContent`. The CSP forbids inline script, and GSAP motion is decorative and skipped under reduced motion.
+
+**What the UI shows about backend behaviour:**
+- `constitutional-core` (reserved; its status is inferred from its files) is query-only.
+- An accepted upload moves a READY corpus to `uploaded`, and queries are blocked until it is rebuilt.
+- Counts describe the built index.
 
 ---
 
@@ -379,7 +461,7 @@ All writes to the document store / metadata store are versioned (NFR-07); the ev
 
 ## 6. Current Implementation Status
 
-Updated as of Phase 6 (claim-level evidence-support check). Status values: **Not started / Scaffolded / In progress / Complete**.
+Updated as of Phase 8 (ConstitutionLens web UI over the Phase 7 API). Status values: **Not started / Scaffolded / In progress / Complete**.
 
 | Module | Status | Notes |
 |---|---|---|
@@ -389,16 +471,17 @@ Updated as of Phase 6 (claim-level evidence-support check). Status values: **Not
 | `docs/SRS.md`, `docs/REQUIREMENT_ANALYSIS.md` | Not in repo | Base texts exist only as SRS v4.1 / RAD v1.0 PDFs outside the repo. The RAD needs the updates listed in the amendment's §8 |
 | `src/.../common/` (config, models, provenance, logging, pages) | Complete | `pages.py` for page-level output (D11); `corpus_id` on documents/provenance/pages (D15) |
 | `src/.../ingestion/` + `scripts/ingest_corpus.py` | In progress | Page-by-page extraction, corpus-generic core + curated-manifest adapter (FR-01a, D15), versioning, failure handling complete; existing OCR text layers used. Pending: OCR fallback for image-only pages and OCR-origin marking (FR-02a), FR-02 structural fields and the 10-document spot-check (D8) |
-| User document collections (upload, collection UI) | Not started | **V2, Phase 15** (FR-COL-01–06); must not be exposed in V1 (Invariant 4) |
+| User document collections (upload, collection UI) | Complete (Phases 7–8, pulled forward by D27) | Upload, build and query through the API and the web UI; no authentication (private use only) |
 | `src/.../chunking/` (`structure.py`, `legal_chunker.py`) + `common/chunks.py` + `scripts/chunk_corpus.py` | Complete (Phase 2) | D16. Verified on synthetic Constitution/judgment fixtures and on two real SCR judgments (Vishaka, Mafatlal). Not yet run on the real Constitution PDF (not in the corpus yet). `paragraph_number` not detected; `extraction_method` awaits FR-02a |
 | `src/.../retrieval/` + `common/retrieval.py` + `scripts/build_indexes.py`, `scripts/query.py` | Complete (Phase 3) | D17–D19. BM25 built and queried on the real corpus. Dense path tested end to end with a deterministic test embedder only: the BGE model has not yet been run, because model downloads were blocked in the build environment. Open: locator text for article-number queries (DECISIONS open items) |
 | `src/.../query/`, `reranking/evidence_selector.py`, `citations/`, `generation/` + `common/evidence.py`, `common/answer.py`; `scripts/query.py --answer` | Complete (Phase 4 as scoped in D20) | D20–D22. Extractive generator only (no LLM chosen yet). Tested on fixtures and run on the real corpus with BM25 only, because BGE was unavailable in the build environment |
 | `src/.../generation/llm.py`, `context.py`, `prompts.py`, `llm_generator.py`; `scripts/query.py --generate` | Complete (Phase 5) | D23–D25. Tested with a scripted LLM and a local HTTP server; no real model has been called. Model choice open |
 | `src/.../validation/` + `common/validation.py`; `scripts/query.py --show-validation` | Complete (Phase 6) | D26. Lexical method default; semantic method tested with a deterministic embedder only (BGE thresholds uncalibrated) |
+| `src/.../corpora/` (registry, uploads, indexing, service), `src/.../api/app.py`; `--corpus-id` on all scripts; Dockerfile/compose serve the API | Complete (Phase 7) | D27–D29. Built and tested with the deterministic test embedder; the Docker image was not built in the development sandbox |
 | Evaluation (SRS Phase 8) | Not started | |
 | `src/.../reranking/cross_encoder.py` | Not started | SRS FR-08 / Experiment C — still open |
 | `src/.../generation/`, `citations/`, `evidence/` | Not started | Phase 5–6 target |
-| `app/` | Not started | Phase 7 target |
+| `src/.../web/static/` (ConstitutionLens UI), `GET /`, `/static`, `GET /config` | Complete (Phase 8) | D30. Tested with pytest + Playwright (mocked API and one real-server run, test embedder, no LLM). Private-demo tool: no authentication |
 | `src/.../evaluation/` (retrieval metrics) | Not started | Phase 8 target |
 | `src/.../verification/` | Not started | V2, Phase 9–13 target — must not be started before V1 Phase 8 is complete, per Invariant 3 |
 
@@ -406,7 +489,7 @@ Updated as of Phase 6 (claim-level evidence-support check). Status values: **Not
 
 ## 7. Deployment Architecture (SRS §40)
 
-Single-machine deployment via Docker Compose. Current Phase 1 state: one `app` service (ingestion is run on demand: `docker compose run --rm app python scripts/ingest_corpus.py`, with `./data` mounted), no separate DB container (see `DECISIONS.md` D6 for why the SRS's "one container for the app, one for the DB" language isn't acted on literally while SQLite remains the default metadata store). A `db` service is added only if the project later adopts PostgreSQL under §39's "larger deployment" condition — not as a default step.
+Single-machine deployment via Docker Compose. The image serves the API and the web UI (Phase 8); compose publishes the port on `127.0.0.1` only (D30). Original Phase 1 state: one `app` service (ingestion is run on demand: `docker compose run --rm app python scripts/ingest_corpus.py`, with `./data` mounted), no separate DB container (see `DECISIONS.md` D6 for why the SRS's "one container for the app, one for the DB" language isn't acted on literally while SQLite remains the default metadata store). A `db` service is added only if the project later adopts PostgreSQL under §39's "larger deployment" condition — not as a default step.
 
 Evaluation runs (`scripts/evaluate.py`) are a separate, decoupled process against a fixed corpus snapshot (NFR-04) and never sit on the live query path (NFR-01) — this applies from Phase 8 (V1 retrieval benchmark) onward.
 

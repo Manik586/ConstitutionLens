@@ -37,7 +37,8 @@ from constitutional_evidence_rag.common.retrieval import RetrievedChunk
 from constitutional_evidence_rag.query.understanding import QueryAnalysis
 from constitutional_evidence_rag.retrieval.bm25 import tokenize
 
-_ROLE = {SourceType.CONSTITUTIONAL_TEXT: EvidenceRole.CONSTITUTIONAL_TEXT, SourceType.JUDGMENT: EvidenceRole.JUDICIAL}
+_ROLE = {SourceType.CONSTITUTIONAL_TEXT: EvidenceRole.CONSTITUTIONAL_TEXT, SourceType.JUDGMENT: EvidenceRole.JUDICIAL,
+         SourceType.USER_DOCUMENT: EvidenceRole.USER_DOCUMENT}  # Article/case boosts never fire for user documents
 
 
 def role_of(chunk: Chunk) -> EvidenceRole:

@@ -23,6 +23,9 @@ from constitutional_evidence_rag.common.config import ConfigError, load_settings
 from constitutional_evidence_rag.common.logging import configure_logging, get_logger
 from constitutional_evidence_rag.ingestion.metadata import ManifestError, RegistryError
 from constitutional_evidence_rag.common.models import CURATED_CORPUS_ID
+from constitutional_evidence_rag.corpora.errors import CorpusError
+from constitutional_evidence_rag.corpora.registry import validate_corpus_id
+from constitutional_evidence_rag.corpora.service import CorpusService
 from constitutional_evidence_rag.ingestion.pipeline import corpus_dir, ingest_corpus
 
 MANIFEST_FILENAME = "manifest.yaml"
@@ -34,6 +37,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--manifest", type=Path, default=None, help=f"manifest YAML (default: <data_raw_dir>/{MANIFEST_FILENAME})"
     )
+    parser.add_argument("--corpus-id", default=None,
+                        help="Phase 7: target corpus (default: corpus.default_corpus_id). The curated corpus is ingested "
+                             "from its manifest; a user corpus from --input-dir.")
+    parser.add_argument("--input-dir", type=Path, default=None,
+                        help="Phase 7: ingest every *.pdf in this folder into a user corpus (created if missing)")
     args = parser.parse_args(argv)
 
     try:
@@ -44,6 +52,14 @@ def main(argv: list[str] | None = None) -> int:
 
     configure_logging(settings.logging.level, settings.logging.format)
     logger = get_logger("ingest_corpus")
+
+    try:
+        corpus_id = validate_corpus_id(args.corpus_id or settings.corpus.default_corpus_id)
+    except CorpusError as exc:
+        print(f"error: {exc.message}", file=sys.stderr)
+        return 2
+    if args.input_dir is not None or corpus_id != CURATED_CORPUS_ID:
+        return _ingest_user_corpus(corpus_id, args, settings)
 
     raw_dir = settings.paths.data_raw_dir
     manifest = args.manifest or raw_dir / MANIFEST_FILENAME
@@ -67,6 +83,35 @@ def main(argv: list[str] | None = None) -> int:
         f"{corpus_dir(settings.paths.data_processed_dir, CURATED_CORPUS_ID)}"
     )
     return 1 if report.failed else 0
+
+
+def _ingest_user_corpus(corpus_id: str, args, settings) -> int:
+    """Phase 7: validate and store every *.pdf in --input-dir as USER_DOCUMENT, then ingest
+    (corpus.json status updated as it goes). Rejected files are reported; the rest proceed."""
+    if corpus_id == CURATED_CORPUS_ID:
+        print(f"error: Corpus '{corpus_id}' is reserved; it is ingested from its manifest, not --input-dir.", file=sys.stderr)
+        return 2
+    if args.input_dir is None:
+        print("error: a user corpus is ingested from a folder of PDFs: pass --input-dir.", file=sys.stderr)
+        return 2
+    if not args.input_dir.is_dir():
+        print(f"error: --input-dir {args.input_dir.name!r} is not a folder.", file=sys.stderr)
+        return 2
+    service = CorpusService(settings)
+    try:
+        if not service.registry.exists(corpus_id):
+            service.create_corpus(corpus_id)
+        _, results = service.add_documents_from_dir(corpus_id, args.input_dir)
+        for r in results:
+            print(f"{r.status:<9} {r.filename}" + (f"  ({r.reason})" if r.reason else f"  ({r.pages} pages)"))
+        report = service.ingest_uploads(corpus_id)
+    except CorpusError as exc:
+        print(f"error: {exc.message}", file=sys.stderr)
+        return 2
+    rejected = [r for r in results if r.status == "rejected"]
+    print(f"\n{len(report.ingested)} ingested, {len(report.unchanged)} unchanged, {len(report.failed)} failed, "
+          f"{len(rejected)} rejected -> corpus '{corpus_id}' (status: {service.get_corpus(corpus_id).status.value})")
+    return 1 if rejected or report.failed else 0
 
 
 if __name__ == "__main__":

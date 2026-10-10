@@ -24,6 +24,7 @@ class EvidenceRole(str, Enum):
 
     CONSTITUTIONAL_TEXT = "constitutional_text"
     JUDICIAL = "judicial"
+    USER_DOCUMENT = "user_document"  # Phase 7: neutral role for uploaded documents (no authority implied)
     OTHER = "other"
 
 

@@ -35,6 +35,7 @@ DOCUMENT_ID_PREFIXES: dict[SourceType, str] = {
     SourceType.CONSTITUTIONAL_TEXT: "CONST",
     SourceType.AMENDMENT: "AMEND",
     SourceType.JUDGMENT: "JUDG",
+    SourceType.USER_DOCUMENT: "UDOC",
 }
 _ID_HASH_LENGTH = 12  # 48 bits: collision-free in practice at 10^2–10^3 documents
 

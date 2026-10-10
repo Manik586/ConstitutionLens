@@ -23,6 +23,18 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0,<9.0",
+    "httpx>=0.27,<1",                 # FastAPI TestClient (API tests are skipped without the [api] extra)
+]
+# Phase 7 HTTP API (D29): pip install -e ".[api]"
+api = [
+    "fastapi>=0.110,<1",
+    "uvicorn>=0.29,<1",
+    "python-multipart>=0.0.9",       # multipart PDF uploads
+]
+# Phase 8 browser tests (D30): pip install -e ".[api,dev,e2e]" && python -m playwright install chromium
+e2e = [
+    "playwright>=1.45,<2",
+    "pytest-playwright>=0.5,<1",
 ]
 
 [build-system]
@@ -31,6 +43,10 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/constitutional_evidence_rag"]
+# Phase 8 (D30): the web UI (src/constitutional_evidence_rag/web/static/**: HTML, CSS, JS, the
+# vendored GSAP, favicon) is package data. Hatch ships every non-gitignored file under the
+# package directory, so the Docker image (pip install from src/) serves it without extra config.
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["e2e: Phase 8 browser tests (Playwright + Chromium); skipped only if Playwright is not installed"]

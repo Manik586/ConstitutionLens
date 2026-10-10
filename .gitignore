@@ -12,6 +12,7 @@ build/
 
 # Generated data artifacts (not source)
 data/processed/
+data/uploads/
 data/db/
 indexes/
 models/

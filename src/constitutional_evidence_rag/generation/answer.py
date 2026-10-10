@@ -32,6 +32,7 @@ from constitutional_evidence_rag.retrieval.bm25 import tokenize
 ELLIPSIS = " […] "
 _SECTION = {EvidenceRole.CONSTITUTIONAL_TEXT: AnswerSection.CONSTITUTIONAL_SOURCE,
             EvidenceRole.JUDICIAL: AnswerSection.JUDICIAL_INTERPRETATION,
+            EvidenceRole.USER_DOCUMENT: AnswerSection.OTHER_EVIDENCE,
             EvidenceRole.OTHER: AnswerSection.OTHER_EVIDENCE}
 _ABBREVIATIONS = frozenset(
     "v vs no nos art arts s ss cl cls sub j jj cj cji c ors anr etc viz ie eg p pp para paras sec secs mr ms mrs dr "

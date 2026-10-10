@@ -36,6 +36,8 @@ def source_label(citation: Citation, show_author: bool = False) -> str:
     if citation.source_type is SourceType.CONSTITUTIONAL_TEXT:
         return f"Article {citation.article_number}" + (f" ({citation.article_title})" if citation.article_title else "") \
             if citation.article_number else "constitutional text"
+    if citation.source_type is SourceType.USER_DOCUMENT:
+        return "uploaded document"
     if citation.division is Division.FRONT_MATTER:
         return "reporter's headnote"
     if show_author and citation.opinion_author:
@@ -58,6 +60,10 @@ def format_citation(citation: Citation, show_author: bool = False, label: str | 
     if citation.source_type is SourceType.JUDGMENT and citation.source_date:
         title += f" ({citation.source_date.day} {citation.source_date:%B %Y})"
     label = label or f"[{citation.citation_id}]"
+    if citation.source_type is SourceType.USER_DOCUMENT:  # Phase 7: "[E1] research_paper.pdf — Page 7"
+        pages = f"Page {citation.page_start}" if citation.page_start == citation.page_end \
+            else f"Pages {citation.page_start}–{citation.page_end}"
+        return f"{label} {citation.title} — {pages}"
     return f"{label} {title}, {source_label(citation, show_author)}, {format_pages(citation)}"
 
 

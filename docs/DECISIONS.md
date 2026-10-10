@@ -385,9 +385,105 @@ All are heuristic, configurable, and to be revisited with the evaluation set.
 
 ---
 
+## D27 — Phase 7: user corpora pulled forward from V2; one neutral `USER_DOCUMENT` source type
+
+**Context:** SRS v4.2 places user document collections in V2 (Phase 15, FR-COL-01–06), behind the research extension. The hosted build needs them now. The corpus-generic core (D15, FR-01a, FR-05a) was designed so collections reuse the pipeline unchanged.
+
+**Decision:** User corpora are delivered in Phase 7, ahead of the V2 research work, with no change to the research design. Uploaded PDFs get **one neutral source type, `USER_DOCUMENT`** (`UDOC-` IDs). No structure is assumed: the chunker's existing unstructured, page-aware fallback is used. No authority is implied: this is not the SRS §20 authority taxonomy, and the context labels these passages "user-supplied, unverified" (SRS §20.4). The minimum downstream changes:
+- a neutral `EvidenceRole.USER_DOCUMENT`, for which Article and case boosts never fire;
+- the context label;
+- citations shown as `[E1] file.pdf — Page 7`.
+
+`source_url` is `upload://<corpus_id>/<sha256>`, so document IDs are stable and identical bytes are never stored twice. Uploads are validated per file, and one bad file never aborts the others. The checks are extension plus `%PDF-` magic bytes, size, count, total size, pages, encrypted, corrupt, empty, and no extractable text. **No OCR for uploads**: scanned PDFs are rejected with "No extractable text (scanned PDFs are not supported yet)". Client filenames are never used as paths; files are stored as `<sha256[:12]>.pdf`.
+
+**Consequences:** Curated-corpus behaviour is unchanged, and all Phase 1–6 tests pass unmodified apart from test-isolation fixtures. A user corpus queried with an Article reference reports that no constitutional text was found, rather than guessing.
+
+**Reference:** SRS v4.3 §10, §20.4, §22.1 (FR-COL-01–06), FR-01a, FR-05a; D15.
+
+---
+
+## D28 — File-based corpus registry (`corpus.json`), two-root storage, reserved curated id, atomic index builds
+
+**Context:** Corpora need a status (uploaded, processing, ready, failed), counts and an error, and they must survive restarts. D4 keeps storage file-based. The curated corpus must keep working with zero migration.
+
+**Decision:**
+- One `corpus.json` per user corpus at `data/processed/<corpus_id>/corpus.json`, written atomically (temp file + `os.replace`). No SQLite and no database.
+- The storage roots are unchanged (`data/processed`, `indexes`), with **`data/uploads/<corpus_id>/`** added for originals.
+- `constitutional-core` is **reserved** and never gets a `corpus.json`. Its status is inferred: READY iff `chunks.jsonl` and both indexes exist, else UPLOADED.
+- Querying a corpus that is not READY fails **before** any index is opened, with a clear message.
+- **Index builds are all-or-nothing:** BM25 and dense are built in a staging directory (seeded with the existing embeddings, as a cache) and swapped in together. A failed build leaves the previous indexes byte-identical and marks the corpus FAILED.
+- A per-corpus lock, in-process plus a lock file, prevents concurrent builds across the CLI and the API. Startup turns any corpus left in PROCESSING into FAILED and removes stale lock files.
+
+**Consequences:** A failed rebuild may already have regenerated `chunks.jsonl`. The corpus then stays FAILED (not queryable) until a successful rebuild, rather than serving mismatched data; the existing stale-index check would also refuse it. Locks do not survive crashes by design (recovery clears them). Lock files on network filesystems are not guaranteed to be atomic, so storage should be local disk.
+
+**Reference:** D4, D15, D18 (stale-index refusal), NFR-07; SRS §40.4.
+
+---
+
+## D29 — Service layer, HTTP API without authentication, one background thread, hosting
+
+**Context:** The hosted build needs an HTTP API for a future UI, sharing one implementation with the CLI. The SRS keeps authentication out of scope (§11), and FR-DEP-07 / §40.3 allow uploads only in local or private deployments.
+
+**Decision:**
+- `corpora/service.py` is framework-independent and is used by both the scripts and a thin **FastAPI** app (optional `[api]` extra).
+- Builds run on **one background worker thread**, behind `start_build`. A job queue can replace it later without retrieval changes.
+- One embedding model instance is loaded lazily and shared, and retrievers are cached per corpus.
+- API errors are always `{error, message}` (404, 409, 413, 422, 503, generic 500) and never contain tracebacks, server paths or keys.
+- The image runs uvicorn as a non-root user, with a `/health` HEALTHCHECK. `CER_CONFIG` and `CER_DATA_ROOT` remove any dependence on the working directory; relative paths resolve against `CER_DATA_ROOT` when it is set.
+- **There is no authentication. The API must be deployed only in a private, trusted setting** (SRS `private` profile). Publishing it with uploads enabled would expose every corpus to every visitor.
+- With `generate`, retrieved user-document text is sent to the configured LLM provider; the `allow_remote` guard is unchanged.
+
+**Consequences:** Next for a public deployment: authentication and `owner_id` enforcement, a job queue, a storage backend, rate limiting (FR-DEP-08), and a frontend.
+
+**Reference:** SRS v4.3 §11, §40 (FR-DEP-01, -05, -06, -07, -08); D6, D23.
+
+---
+
+## D30 — Phase 8: ConstitutionLens web UI as vanilla JS served by FastAPI
+
+**Context:** Phase 7 exposes every corpus operation over HTTP, but using it required scripts or hand-written requests. Phase 8 adds a browser UI without changing any RAG, corpus-status or isolation behaviour. It must work offline and in the Docker image, which installs the package from `src/`.
+
+**Decision:**
+- **Stack:** plain HTML, CSS and vanilla JavaScript ES modules, served same-origin by the existing FastAPI app. There is no framework, no Node build and no CORS.
+  - `api.js` is the only module that calls `fetch`.
+  - `state.js` holds pure helpers: status → UI flags, the polling cadence, and the query body built from only the supported parameters.
+  - `render.js` builds the DOM with `textContent` only.
+  - `main.js` wires events.
+  - `motion.js` is optional decoration.
+- **Assets are package data:** they live in `src/constitutional_evidence_rag/web/static/`, so the wheel and the image carry them. Hatch ships non-gitignored files in the package; verified on a built wheel.
+- **Routes:** `GET /` serves `index.html` and `/static` is a `StaticFiles` mount. No API route moved, and a test checks every Phase 7 route still behaves the same. `.js` is registered as `text/javascript`, because the Windows MIME registry can map it to `text/plain`, which breaks ES modules.
+- **Security headers on `/` and `/static/*` only:**
+  - A Content-Security-Policy with `default-src 'self'`, no inline script or style, `frame-ancestors 'none'`.
+  - `X-Content-Type-Options: nosniff`.
+  - `Referrer-Policy: no-referrer`.
+  - API responses are unchanged.
+- **One new read-only endpoint, `GET /config`,** because nothing existing exposed these facts:
+  - `generation_available`, from `CorpusService.generation_available()`, which builds the LLM client without a network call.
+  - The upload limits, `default_corpus_id` and `reserved_corpus_ids`.
+  - The query options: `modes: ["hybrid"]`, since the service rejects every other mode; `top_k` min, max and default; `max_question_chars`; and `timeout_seconds` = `llm.timeout_seconds × (max_retries + 1)`, which the browser uses (+15 s) as its query timeout.
+  - No paths, URLs, model names or keys.
+- **Coarse polling of `GET /corpora/{id}`:** every 2 s for 30 s, then every 5 s. It stops on ready or failed, on a corpus switch, or when the tab is hidden (and resumes when visible). Network errors back off up to 15 s, and polling gives up after 5 consecutive failures. No percentages are shown, because the API reports none.
+- **Backend facts the UI follows rather than changes:**
+  - `document_count` and `chunk_count` describe the built index, so Build is not gated on them.
+  - An accepted upload moves a READY corpus to `uploaded` and queries are refused until a rebuild.
+  - Without an LLM the answer is the extractive "quoted passages" result, and the Phase 6 check does not run.
+- **Motion:** GSAP 3.13 is vendored, under its standard no-charge licence. It writes styles through the CSSOM, which the CSP permits. Every animation is skipped under `prefers-reduced-motion` or if GSAP fails to load, and none gates functionality.
+- **Tests:**
+  - pytest + TestClient for serving, headers, `/config` and route stability.
+  - Playwright (Chromium, marker `e2e`) with mocked API routes for exact requests and rendering, plus one unmocked real-server run. No model download and no LLM call.
+
+**Consequences:**
+- The UI is a private-demo tool: there is no authentication, rate limiting or ownership, and compose now binds `127.0.0.1` by default.
+- Uploads waiting for a build are not visible after a page reload, because the API does not list pending files.
+- **Phase 9 needs:** authentication and `owner_id` enforcement, HTTPS, rate limiting, and a job queue instead of the in-process build thread.
+
+**Reference:** SRS §21.4 (FR-15–FR-17), §38, §40; D3, D27–D29.
+
+---
+
 ## Open decisions (not yet made — flagged for the next phase)
 
 - **Phase 2 labelling gaps (affect Phase 4 answers).** Some Constitution article headings are missed (Articles 4, 65, 174, 325, 368, 369, …: long or footnote-marked titles), and some opinion-author lines are missed ("BHAGWATI, J.-The …", "DR. D.Y. CHANDRACHUD, J."). Phase 4 reports a missing Article rather than inventing it, and hides author names by default (D21). Fixing Phase 2 requires re-chunking and an index rebuild.
 - **LLM model choice.** The provider interface and an OpenAI-compatible client exist (D23); which model to use — local (Qwen / Llama / Gemma via Ollama or vLLM) or hosted — is still open, and should be decided on answer quality on the evaluation set (project Phase 6) and on the deployment footprint (SRS §40, NFR-12).
 - **OCR fallback implementation (now required by SRS v4.2 FR-02a, V1).** *Whether* to OCR is settled; *how* is open: an OCRmyPDF/Tesseract pre-processing step vs. OCR inside `pdf_parser.py`, plus per-page OCR-origin marking. Until then, image-only PDFs are still rejected with `NoExtractableTextError` (D12). Existing OCR text layers (e.g. the SCR scans checked so far) are already used.
-- **Whether FastAPI is introduced at all** — per D3, contingent on whether the UI (Phase 7) ends up needing a separate backend process or can call pipeline functions directly from Streamlit.
+- **Whether FastAPI is introduced at all** — per D3, contingent on whether the UI (Phase 7) ends up needing a separate backend process or can call pipeline functions directly from Streamlit. *(Resolved: D29 introduced the FastAPI app; D30 serves the web UI from it.)*

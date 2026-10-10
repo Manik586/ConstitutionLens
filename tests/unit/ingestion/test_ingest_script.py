@@ -23,7 +23,8 @@ def _run(config: Path):
     # override variables explicitly wins over it (load_dotenv never
     # overrides variables that are already set), keeping the test hermetic.
     paths = yaml.safe_load(config.read_text())["paths"]
-    env = {**os.environ, "LOG_LEVEL": "INFO",
+    env = {**os.environ, "LOG_LEVEL": "INFO", "DEFAULT_CORPUS_ID": "constitutional-core",  # Phase 7: pin the default against a local .env
+          
            "DATA_RAW_DIR": paths["data_raw_dir"], "DATA_PROCESSED_DIR": paths["data_processed_dir"]}
     return subprocess.run([sys.executable, str(SCRIPT), "--config", str(config)],
                           capture_output=True, text=True, cwd=REPO_ROOT, env=env)

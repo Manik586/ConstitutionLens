@@ -29,7 +29,11 @@ from constitutional_evidence_rag.retrieval.dense import Embedder, make_embedder
 from constitutional_evidence_rag.validation.policy import apply_support_validation
 from constitutional_evidence_rag.validation.support import SupportValidator
 from constitutional_evidence_rag.retrieval.hybrid import Retriever
-from constitutional_evidence_rag.retrieval.store import IndexNotFoundError, validate_query
+from constitutional_evidence_rag.retrieval.store import IndexNotFoundError, RetrievalIndexError, validate_query
+
+
+class CorpusIsolationError(RetrievalIndexError):
+    """Evidence from another corpus reached the answer pipeline (Phase 7 defence in depth)."""
 
 
 def answering_settings(settings: Settings) -> Settings:
@@ -52,8 +56,9 @@ def make_generator(settings: Settings, llm_client: LLMClient | None = None) -> A
 class AnswerPipeline:
     def __init__(self, retriever: Retriever, registry: dict[tuple[str, int], DocumentMetadata], settings: Settings,
                  generator: AnswerGenerator | None = None, validator: SupportValidator | None = None,
-                 embedder: Embedder | None = None):
+                 embedder: Embedder | None = None, corpus_id: str | None = None):
         self.retriever, self.registry, self.settings = retriever, registry, settings
+        self.corpus_id = corpus_id  # Phase 7: when set, every evidence item must come from this corpus
         self.generator = generator or make_generator(settings)
         ev = settings.evidence_validation
         # Phase 6: off -> None. The semantic method reuses the retrieval embedding model (same instance).
@@ -75,14 +80,20 @@ class AnswerPipeline:
             embedder = make_embedder(settings.embedding)  # one model instance for retrieval and Phase 6
         retriever = Retriever.load(processed_root=processed_root, indexes_root=indexes_root, corpus_id=corpus_id,
                                    settings=settings, embedder=embedder)
-        return cls(retriever, registry, settings, generator, embedder=embedder)
+        return cls(retriever, registry, settings, generator, embedder=embedder, corpus_id=corpus_id)
 
     def analyze(self, query: str) -> QueryAnalysis:
         return analyze_query(validate_query(query), self.cases)
 
     def select(self, analysis: QueryAnalysis) -> EvidenceSet:
         candidates = self.retriever.hybrid(analysis.query, self.settings.evidence.candidate_pool)
-        return select_evidence(analysis, candidates, self.retriever.chunks, self.registry, self.settings.evidence)
+        evidence = select_evidence(analysis, candidates, self.retriever.chunks, self.registry, self.settings.evidence)
+        if self.corpus_id is not None:
+            foreign = {i.chunk.corpus_id for i in evidence.items} - {self.corpus_id}
+            if foreign:
+                raise CorpusIsolationError(f"evidence from another corpus ({', '.join(sorted(foreign))}) reached a query "
+                                           f"for '{self.corpus_id}'; refusing to answer")
+        return evidence
 
     def answer(self, query: str) -> Answer:
         analysis = self.analyze(query)

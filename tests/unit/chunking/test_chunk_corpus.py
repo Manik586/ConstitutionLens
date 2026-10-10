@@ -110,7 +110,8 @@ def _run_script(tmp_path, processed: Path):
     config["paths"] = {"data_raw_dir": str(tmp_path / "raw"), "data_processed_dir": str(processed)}
     path = tmp_path / "config.yaml"
     path.write_text(yaml.safe_dump(config))
-    env = {**os.environ, "LOG_LEVEL": "INFO", "DATA_RAW_DIR": str(tmp_path / "raw"), "DATA_PROCESSED_DIR": str(processed)}
+    env = {**os.environ, "LOG_LEVEL": "INFO", "DEFAULT_CORPUS_ID": "constitutional-core",  # Phase 7: pin the default against a local .env
+           "DATA_RAW_DIR": str(tmp_path / "raw"), "DATA_PROCESSED_DIR": str(processed)}
     return subprocess.run([sys.executable, str(REPO_ROOT / "scripts" / "chunk_corpus.py"), "--config", str(path)],
                           capture_output=True, text=True, cwd=REPO_ROOT, env=env)
 
