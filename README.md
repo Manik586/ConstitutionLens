@@ -134,6 +134,60 @@ With Docker: `docker compose up --build` serves the API and the web UI on 127.0.
 - With `generate`, the retrieved passages from your documents are sent to the configured LLM provider.
 - Answers from your documents are not legal advice and not an authoritative statement of law. The Phase 6 check is an evidence-support check, not legal verification.
 
+## Deploy: frontend on Vercel, backend on your laptop
+
+The UI is static, so Vercel can host it. The backend stays on your machine and is reached through a tunnel. **The site works only while your laptop server and tunnel are running**; otherwise the page loads and shows "Cannot reach the server".
+
+```
+browser ──► https://<project>.vercel.app      static UI (vercel/build.mjs output)
+   └─ API ─► https://<fixed-name>.ngrok-free.app ──► tunnel ──► uvicorn on your laptop
+```
+
+**1. Get a tunnel with a fixed address.** Random-address tunnels break the site every restart. Pick one:
+- **ngrok** (free static domain): sign up, run `ngrok config add-authtoken <token>`, and claim your free static domain in the ngrok dashboard. The UI automatically sends the header that skips ngrok's free-plan browser warning.
+- **Cloudflare named tunnel**: needs a domain you've added to Cloudflare. There's no warning page.
+
+**2. Configure the backend** in `.env` on your laptop:
+
+```
+CORS_ALLOWED_ORIGINS=https://<project>.vercel.app
+API_ACCESS_TOKEN=<a long random token>
+```
+
+Generate a token with `python -c "import secrets; print(secrets.token_urlsafe(24))"`.
+
+- **The token is strongly recommended.** The tunnel makes your API public, and with the token set every API call except `/health` must send it. The UI asks for it once per tab (or remembers it on that device if you tick the box).
+- **Share the token only with people you trust.** Anyone who has it can use, upload to and delete every corpus.
+
+**3. Start the backend, then the tunnel** (from the inner project folder):
+
+```bash
+.venv\Scripts\python.exe -m uvicorn --factory constitutional_evidence_rag.api.app:create_app --host 127.0.0.1 --port 8000
+```
+
+```bash
+ngrok http 8000 --url=https://<fixed-name>.ngrok-free.app
+```
+
+(Older ngrok versions use `--domain=<fixed-name>.ngrok-free.app`.) Check https://<fixed-name>.ngrok-free.app/health in a browser.
+
+**4. Deploy the frontend on Vercel.**
+1. Push the repository to GitHub.
+2. In Vercel: **Add New → Project**, import the repository, and keep the root directory as the repository root.
+3. Under **Environment Variables**, set `API_BASE` = `https://<fixed-name>.ngrok-free.app`.
+4. Deploy.
+
+`vercel.json` runs `node vercel/build.mjs`. That script copies the UI to `vercel-dist/`, writes `API_BASE` into the page, and adds a Content-Security-Policy that allows calls only to that address. Nothing Python is installed or run on Vercel.
+
+**5. Open `https://<project>.vercel.app`** and enter the access token.
+
+**Notes:**
+- **Changing the tunnel address:** update `API_BASE` in Vercel and redeploy.
+- **Vercel preview deployments** have their own addresses. Add any you use to `CORS_ALLOWED_ORIGINS` (comma-separated), or use only the production address.
+- **Uploads go to your laptop:** files go straight from the visitor's browser to your laptop through the tunnel. Large PDFs are limited by your upload speed and the tunnel's plan.
+- **Free-plan limits:** Vercel's free Hobby plan is for non-commercial use, and ngrok's free plan has bandwidth and request limits. Check both against your use.
+- **Testing the build locally:** run `API_BASE=http://localhost:8000 node vercel/build.mjs`. Plain `http://` is accepted only for localhost.
+
 ## Retrieval evaluation
 
 `data/eval/retrieval_v1.jsonl` holds 39 questions with known correct sources (case, provision, out-of-scope). Measure the search modes and, optionally, cross-encoder rerankers:
@@ -234,7 +288,7 @@ pytest -q -m "not e2e"    # without a browser
 
 ### Limitations
 
-- **No authentication.** Anyone who can reach the server can see, query, upload to and delete every user corpus. Corpus IDs are labels, not secrets. Use it **on your own machine or a private network of trusted people only**. A public deployment needs authentication, per-user corpus ownership, rate limiting and HTTPS first (Phase 9 and later).
+- **No user accounts.** Anyone who can reach the server can see, query, upload to and delete every user corpus (an optional shared access token, `API_ACCESS_TOKEN`, limits this to people who have the token). Corpus IDs are labels, not secrets. Use it **on your own machine or a private network of trusted people only**. A public deployment needs authentication, per-user corpus ownership, rate limiting and HTTPS first (Phase 9 and later).
 - PDFs with extractable text only (no OCR).
 - Indexing runs in a background thread inside the server process. Restarting the server during a build marks that corpus *Failed*, so build it again.
 - With LLM generation on, retrieved passages from your documents are sent to the configured LLM provider (a remote one only with `llm.allow_remote: true`).

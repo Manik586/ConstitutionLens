@@ -1,0 +1,468 @@
+{
+  "generated_at": "2026-10-10T20:53:28+00:00",
+  "corpus_id": "constitutional-core",
+  "questions": "retrieval_v1.jsonl",
+  "n_questions": 43,
+  "embedding_model": "BAAI/bge-small-en-v1.5",
+  "rerank_candidates": 30,
+  "retrieval": [
+    {
+      "mode": "bm25",
+      "all": {
+        "hit@1": 0.676,
+        "hit@5": 0.838,
+        "hit@10": 0.865,
+        "mrr@10": 0.76,
+        "n": 37
+      },
+      "case": {
+        "hit@1": 0.792,
+        "hit@5": 0.958,
+        "hit@10": 0.958,
+        "mrr@10": 0.875,
+        "n": 24
+      },
+      "provision": {
+        "hit@1": 0.462,
+        "hit@5": 0.615,
+        "hit@10": 0.692,
+        "mrr@10": 0.548,
+        "n": 13
+      },
+      "mean_seconds": 0.001
+    },
+    {
+      "mode": "dense",
+      "all": {
+        "hit@1": 0.73,
+        "hit@5": 0.838,
+        "hit@10": 0.919,
+        "mrr@10": 0.787,
+        "n": 37
+      },
+      "case": {
+        "hit@1": 0.792,
+        "hit@5": 0.917,
+        "hit@10": 0.958,
+        "mrr@10": 0.847,
+        "n": 24
+      },
+      "provision": {
+        "hit@1": 0.615,
+        "hit@5": 0.692,
+        "hit@10": 0.846,
+        "mrr@10": 0.676,
+        "n": 13
+      },
+      "mean_seconds": 0.027
+    },
+    {
+      "mode": "hybrid",
+      "all": {
+        "hit@1": 0.811,
+        "hit@5": 0.838,
+        "hit@10": 0.865,
+        "mrr@10": 0.828,
+        "n": 37
+      },
+      "case": {
+        "hit@1": 0.917,
+        "hit@5": 0.917,
+        "hit@10": 0.958,
+        "mrr@10": 0.922,
+        "n": 24
+      },
+      "provision": {
+        "hit@1": 0.615,
+        "hit@5": 0.692,
+        "hit@10": 0.692,
+        "mrr@10": 0.654,
+        "n": 13
+      },
+      "mean_seconds": 0.027
+    }
+  ],
+  "evidence": [
+    {
+      "mode": "evidence[hybrid]",
+      "all": {
+        "hit@6": 1.0,
+        "mrr@6": 0.964,
+        "n": 37
+      },
+      "case": {
+        "hit@6": 1.0,
+        "mrr@6": 1.0,
+        "n": 24
+      },
+      "provision": {
+        "hit@6": 1.0,
+        "mrr@6": 0.897,
+        "n": 13
+      }
+    }
+  ],
+  "score_separation": {
+    "bm25": {
+      "answerable": [
+        6.825,
+        27.612,
+        56.473
+      ],
+      "out_of_scope": [
+        8.802,
+        11.055,
+        14.306
+      ],
+      "out_of_scope_below_answerable_min": 0.0
+    },
+    "dense": {
+      "answerable": [
+        0.622,
+        0.773,
+        0.849
+      ],
+      "out_of_scope": [
+        0.459,
+        0.53,
+        0.618
+      ],
+      "out_of_scope_below_answerable_min": 1.0
+    }
+  },
+  "answer_gate": {
+    "answerable_answered": 0.838,
+    "out_of_scope_refused": 1.0,
+    "not_answered": [
+      "case-03",
+      "case-10",
+      "case-18",
+      "case-21",
+      "case-22",
+      "case-23"
+    ],
+    "wrongly_answered": []
+  },
+  "per_question": {
+    "case-01": {
+      "question": "Must a law that deprives a person of personal liberty be just, fair and reasonable rather than arbitrary?",
+      "answer_status": "answered",
+      "bm25": 2,
+      "dense": 1,
+      "hybrid": 1,
+      "evidence[hybrid]": 1
+    },
+    "case-02": {
+      "question": "Can the government impound a citizen's passport without giving them a hearing?",
+      "answer_status": "answered",
+      "bm25": 1,
+      "dense": 1,
+      "hybrid": 1,
+      "evidence[hybrid]": 1
+    },
+    "case-03": {
+      "question": "Can the Supreme Court lay down guidelines against sexual harassment of women at the workplace when there is no law on it?",
+      "answer_status": "insufficient_evidence",
+      "bm25": 1,
+      "dense": 1,
+      "hybrid": 1,
+      "evidence[hybrid]": 1
+    },
+    "case-04": {
+      "question": "Can an international convention such as CEDAW be read into fundamental rights when domestic law is silent?",
+      "answer_status": "answered",
+      "bm25": 2,
+      "dense": 3,
+      "hybrid": 1,
+      "evidence[hybrid]": 1
+    },
+    "case-05": {
+      "question": "Can Parliament use its amending power to destroy the basic structure of the Constitution?",
+      "answer_status": "answered",
+      "bm25": 1,
+      "dense": 1,
+      "hybrid": 1,
+      "evidence[hybrid]": 1
+    },
+    "case-06": {
+      "question": "Was Section 66A of the Information Technology Act struck down for restricting online speech?",
+      "answer_status": "answered",
+      "bm25": 1,
+      "dense": 1,
+      "hybrid": 1,
+      "evidence[hybrid]": 1
+    },
+    "case-07": {
+      "question": "Is consensual sexual conduct between adults of the same sex a crime under Section 377 of the Indian Penal Code?",
+      "answer_status": "answered",
+      "bm25": 1,
+      "dense": 1,
+      "hybrid": 1,
+      "evidence[hybrid]": 1
+    },
+    "case-08": {
+      "question": "Is the offence of adultery under Section 497 of the Indian Penal Code constitutional?",
+      "answer_status": "answered",
+      "bm25": 1,
+      "dense": 1,
+      "hybrid": 1,
+      "evidence[hybrid]": 1
+    },
+    "case-09": {
+      "question": "Can the mother act as the natural guardian of a minor child while the father is alive?",
+      "answer_status": "answered",
+      "bm25": 1,
+      "dense": 1,
+      "hybrid": 1,
+      "evidence[hybrid]": 1
+    },
+    "case-10": {
+      "question": "Do the precautionary principle and the polluter pays principle apply to tanneries discharging effluents into rivers?",
+      "answer_status": "insufficient_evidence",
+      "bm25": 1,
+      "dense": 1,
+      "hybrid": 1,
+      "evidence[hybrid]": 1
+    },
+    "case-11": {
+      "question": "Is a proclamation of President's rule dismissing a state government open to judicial review?",
+      "answer_status": "answered",
+      "bm25": 1,
+      "dense": 1,
+      "hybrid": 1,
+      "evidence[hybrid]": 1
+    },
+    "case-12": {
+      "question": "What rights do religious and linguistic minorities have to establish educational institutions, and can the State regulate their admissions and fees?",
+      "answer_status": "answered",
+      "bm25": 1,
+      "dense": 2,
+      "hybrid": 1,
+      "evidence[hybrid]": 1
+    },
+    "case-13": {
+      "question": "Is the anti-defection law in the Tenth Schedule valid, and is the Speaker's decision on disqualification subject to judicial review?",
+      "answer_status": "answered",
+      "bm25": 1,
+      "dense": 1,
+      "hybrid": 1,
+      "evidence[hybrid]": 1
+    },
+    "case-14": {
+      "question": "Can courts prescribe a fixed outer time limit within which criminal trials must be concluded?",
+      "answer_status": "answered",
+      "bm25": 1,
+      "dense": 1,
+      "hybrid": 1,
+      "evidence[hybrid]": 1
+    },
+    "case-15": {
+      "question": "Can a manufacturer claim a refund of excise duty paid under a mistake of law if the burden was passed on to buyers?",
+      "answer_status": "answered",
+      "bm25": 1,
+      "dense": 1,
+      "hybrid": 1,
+      "evidence[hybrid]": 1
+    },
+    "case-16": {
+      "question": "Can the Directive Principles be given absolute primacy over all fundamental rights by a constitutional amendment?",
+      "answer_status": "answered",
+      "bm25": 2,
+      "dense": 1,
+      "hybrid": 1,
+      "evidence[hybrid]": 1
+    },
+    "case-17": {
+      "question": "Are laws placed in the Ninth Schedule immune from challenge if they violate the basic structure?",
+      "answer_status": "answered",
+      "bm25": 1,
+      "dense": 1,
+      "hybrid": 1,
+      "evidence[hybrid]": 1
+    },
+    "case-18": {
+      "question": "Was a judicial direction transferring a criminal trial of a former Chief Minister to the High Court a nullity that took away his right of appeal?",
+      "answer_status": "insufficient_evidence",
+      "bm25": 1,
+      "dense": 1,
+      "hybrid": 1,
+      "evidence[hybrid]": 1
+    },
+    "case-19": {
+      "question": "Is secularism a basic feature of the Constitution that can justify dismissing a state government?",
+      "answer_status": "answered",
+      "bm25": 1,
+      "dense": 1,
+      "hybrid": 1,
+      "evidence[hybrid]": 1
+    },
+    "case-20": {
+      "question": "Does the right to privacy and sexual autonomy protect LGBT persons from criminalisation?",
+      "answer_status": "answered",
+      "bm25": 1,
+      "dense": 1,
+      "hybrid": 1,
+      "evidence[hybrid]": 1
+    },
+    "prov-01": {
+      "question": "What does Article 14 provide?",
+      "answer_status": "answered",
+      "bm25": null,
+      "dense": null,
+      "hybrid": null,
+      "evidence[hybrid]": 1
+    },
+    "prov-02": {
+      "question": "What freedoms does Article 19 guarantee?",
+      "answer_status": "answered",
+      "bm25": null,
+      "dense": 8,
+      "hybrid": null,
+      "evidence[hybrid]": 1
+    },
+    "prov-03": {
+      "question": "What does Article 21 say?",
+      "answer_status": "answered",
+      "bm25": null,
+      "dense": null,
+      "hybrid": null,
+      "evidence[hybrid]": 1
+    },
+    "prov-04": {
+      "question": "Which provision gives the right to move the Supreme Court for enforcement of fundamental rights?",
+      "answer_status": "answered",
+      "bm25": 1,
+      "dense": 1,
+      "hybrid": 1,
+      "evidence[hybrid]": 1
+    },
+    "prov-05": {
+      "question": "Which provision abolishes untouchability?",
+      "answer_status": "answered",
+      "bm25": 2,
+      "dense": 1,
+      "hybrid": 1,
+      "evidence[hybrid]": 1
+    },
+    "prov-06": {
+      "question": "What rights does a person have when arrested, such as being told the grounds and produced before a magistrate?",
+      "answer_status": "answered",
+      "bm25": 1,
+      "dense": 1,
+      "hybrid": 1,
+      "evidence[hybrid]": 1
+    },
+    "prov-07": {
+      "question": "Is free and compulsory education for children aged six to fourteen a fundamental right?",
+      "answer_status": "answered",
+      "bm25": 1,
+      "dense": 1,
+      "hybrid": 1,
+      "evidence[hybrid]": 1
+    },
+    "prov-08": {
+      "question": "Is there equality of opportunity for citizens in public employment?",
+      "answer_status": "answered",
+      "bm25": 1,
+      "dense": 1,
+      "hybrid": 1,
+      "evidence[hybrid]": 1
+    },
+    "prov-09": {
+      "question": "What happens when the constitutional machinery in a State fails?",
+      "answer_status": "answered",
+      "bm25": null,
+      "dense": 6,
+      "hybrid": null,
+      "evidence[hybrid]": 6
+    },
+    "prov-10": {
+      "question": "Does the Constitution protect freedom of conscience and the right to practise and propagate religion?",
+      "answer_status": "answered",
+      "bm25": 2,
+      "dense": 2,
+      "hybrid": 1,
+      "evidence[hybrid]": 1
+    },
+    "prov-11": {
+      "question": "Can High Courts issue writs such as habeas corpus and mandamus?",
+      "answer_status": "answered",
+      "bm25": 1,
+      "dense": 1,
+      "hybrid": 1,
+      "evidence[hybrid]": 1
+    },
+    "prov-12": {
+      "question": "What duties does the Constitution place on every citizen?",
+      "answer_status": "answered",
+      "bm25": 8,
+      "dense": 1,
+      "hybrid": 2,
+      "evidence[hybrid]": 2
+    },
+    "prov-13": {
+      "question": "Is discrimination on grounds of religion, race, caste, sex or place of birth prohibited?",
+      "answer_status": "answered",
+      "bm25": 1,
+      "dense": 1,
+      "hybrid": 1,
+      "evidence[hybrid]": 1
+    },
+    "none-01": {
+      "question": "Who won the 2011 Cricket World Cup final?",
+      "answer_status": "insufficient_evidence"
+    },
+    "none-02": {
+      "question": "How do I bake sourdough bread at home?",
+      "answer_status": "insufficient_evidence"
+    },
+    "none-03": {
+      "question": "What is the current GST rate on gold jewellery?",
+      "answer_status": "insufficient_evidence"
+    },
+    "none-04": {
+      "question": "What are the parking rules for two-wheelers in Mumbai?",
+      "answer_status": "insufficient_evidence"
+    },
+    "none-05": {
+      "question": "How does photosynthesis convert sunlight into chemical energy?",
+      "answer_status": "insufficient_evidence"
+    },
+    "none-06": {
+      "question": "Which programming language is best for building mobile apps?",
+      "answer_status": "insufficient_evidence"
+    },
+    "case-21": {
+      "question": "what maenka gandhi argued for?",
+      "answer_status": "insufficient_evidence",
+      "bm25": 2,
+      "dense": 6,
+      "hybrid": 8,
+      "evidence[hybrid]": 1
+    },
+    "case-22": {
+      "question": "What did Maneka Gandhi argue?",
+      "answer_status": "insufficient_evidence",
+      "bm25": 1,
+      "dense": 3,
+      "hybrid": 1,
+      "evidence[hybrid]": 1
+    },
+    "case-23": {
+      "question": "What did the court decide in Kesavanada Bharati?",
+      "answer_status": "insufficient_evidence",
+      "bm25": null,
+      "dense": null,
+      "hybrid": null,
+      "evidence[hybrid]": 1
+    },
+    "case-24": {
+      "question": "What did Vishakha say about sexual harassment at work?",
+      "answer_status": "answered",
+      "bm25": 1,
+      "dense": 1,
+      "hybrid": 1,
+      "evidence[hybrid]": 1
+    }
+  }
+}

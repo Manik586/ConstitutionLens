@@ -34,7 +34,7 @@ from constitutional_evidence_rag.common.evidence import (
 )
 from constitutional_evidence_rag.common.models import DocumentMetadata, SourceType
 from constitutional_evidence_rag.common.retrieval import RetrievedChunk
-from constitutional_evidence_rag.query.understanding import QueryAnalysis
+from constitutional_evidence_rag.query.understanding import QueryAnalysis, light_stem
 from constitutional_evidence_rag.retrieval.bm25 import tokenize
 
 _ROLE = {SourceType.CONSTITUTIONAL_TEXT: EvidenceRole.CONSTITUTIONAL_TEXT, SourceType.JUDGMENT: EvidenceRole.JUDICIAL,
@@ -78,7 +78,13 @@ def select_evidence(
 
     # Case lookup: the named judgment's reporter headnote ("HELD"), else its opening chunk
     # (the reporter's catchword summary in SCR front matter).
-    if analysis.names_unknown_case:
+    if analysis.corrections:
+        notices.append("Spelling: " + ", ".join(f"searched for '{n}' instead of '{w}'"
+                                               for w, n in sorted(analysis.corrections.items())) + ".")
+    if analysis.unknown_case_titles:
+        notices.append(f"{'; '.join(analysis.unknown_case_titles)} is not in this corpus. Passages below that "
+                       "mention it are not that judgment; select a corpus that contains it.")
+    elif analysis.names_unknown_case:
         notices.append("The case named in the question is not in the corpus.")
     case_summary_ids: set[str] = set()
     for document_id in analysis.case_document_ids:
@@ -165,10 +171,13 @@ def _group(analysis: QueryAnalysis, chunk: Chunk, is_provision: bool, is_case_su
 
 
 def _coverage(terms: Sequence[str], chunk: Chunk, matched_articles: set[str]) -> float:
+    """Share of the question's key terms present in the chunk; word forms count as the
+    same term ("argue" ~ "argued", "rivers" ~ "river")."""
     if not terms:
         return 1.0
-    present = set(tokenize(chunk.text))
-    hits = sum(1 for t in terms if t in present or t.upper() in matched_articles)
+    tokens = tokenize(chunk.text)
+    present = set(tokens) | {light_stem(t) for t in tokens}
+    hits = sum(1 for t in terms if t in present or light_stem(t) in present or t.upper() in matched_articles)
     return hits / len(terms)
 
 

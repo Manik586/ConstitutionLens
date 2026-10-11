@@ -37,3 +37,7 @@
 {"id": "none-04", "kind": "out_of_scope", "question": "What are the parking rules for two-wheelers in Mumbai?"}
 {"id": "none-05", "kind": "out_of_scope", "question": "How does photosynthesis convert sunlight into chemical energy?"}
 {"id": "none-06", "kind": "out_of_scope", "question": "Which programming language is best for building mobile apps?"}
+{"id": "case-21", "kind": "case", "question": "what maenka gandhi argued for?", "relevant_documents": ["JUDG-4fbe72e421ed"], "note": "misspelled case name"}
+{"id": "case-22", "kind": "case", "question": "What did Maneka Gandhi argue?", "relevant_documents": ["JUDG-4fbe72e421ed"], "note": "word form: argue vs argued"}
+{"id": "case-23", "kind": "case", "question": "What did the court decide in Kesavanada Bharati?", "relevant_documents": ["JUDG-375cab464fa9"], "note": "misspelled case name"}
+{"id": "case-24", "kind": "case", "question": "What did Vishakha say about sexual harassment at work?", "relevant_documents": ["JUDG-b44b6ba1ff4c"], "note": "alternative spelling of the case name"}

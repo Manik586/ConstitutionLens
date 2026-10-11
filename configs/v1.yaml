@@ -125,6 +125,12 @@ evidence_validation:
 corpus:
   default_corpus_id: constitutional-core
 
+# D33 — API exposure. Same-origin only by default. For a frontend hosted elsewhere (e.g. Vercel)
+# list its exact origin; env override CORS_ALLOWED_ORIGINS (comma-separated). The optional shared
+# access token is set ONLY in the environment: API_ACCESS_TOKEN (16+ characters).
+api:
+  cors_allowed_origins: []
+
 uploads:
   max_file_size_mb: 20
   max_documents_per_corpus: 20

@@ -248,6 +248,11 @@ code { font-family: var(--mono); font-size: .9em; }
 .dialog::backdrop { background: rgba(20, 22, 30, .45); }
 .dialog h2 { font: 600 20px var(--serif); margin-bottom: 10px; }
 .dialog p { color: var(--ink-2); margin-bottom: 18px; overflow-wrap: anywhere; }
+.token-form { display: grid; gap: 8px; }
+.token-form p { margin-bottom: 6px; }
+.token-form label[for="tokenInput"] { font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.token-form input[type="password"] { min-height: 40px; padding: 6px 10px; border: 1px solid var(--line-strong); border-radius: 8px; font-family: var(--mono); }
+.token-form .row { margin-top: 8px; }
 
 /* ---------- responsive ---------- */
 @media (max-width: 860px) {

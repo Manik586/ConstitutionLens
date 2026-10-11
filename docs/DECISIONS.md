@@ -516,6 +516,50 @@ All are heuristic, configurable, and to be revisited with the evaluation set.
 
 ---
 
+## D32 — Spelling-tolerant case names, word-form coverage, and library cases missing from a user corpus
+
+**Context:** A user asked "what maenka gandhi argued for?" in an uploaded corpus (JUD1) that does not contain Maneka Gandhi. Testing showed three faults:
+- A one-letter misspelling of a case name stayed a required key term, so a correct search was refused by the coverage gate.
+- Word forms did not match ("argue" against "argued"), and framing or function words ("can", "no", "took", "away") counted as key terms.
+- Uploaded files are titled by filename, so no case name was known in a user corpus. "What did Maneka Gandhi argue?" was then *answered* from other judgments that merely cite it.
+
+**Decision:**
+- **Typo tolerance:** `query/understanding.py` matches case-name tokens with a one-edit allowance: insertion, deletion, substitution or adjacent swap, at least 6 letters, same first letter, and not an inflection. The correction is recorded (`QueryAnalysis.corrections`), retrieval uses the corrected text (`search_query`), and a notice tells the user ("Spelling: searched for 'maneka' instead of 'maenka'").
+- **Coverage:** the coverage check compares light-stemmed forms (`light_stem`, used only for coverage, never for indexing). `QUERY_STOPWORDS` gains question-framing and function words.
+- **Library cases in user corpora:** `CorpusService` gives user-corpus pipelines the curated library's judgment titles.
+  - An uploaded document *is* a library judgment only if every distinctive name token of the title appears in the first 800 characters of its first page (read from `documents.jsonl`, because chunking can drop short title lines). Filenames are not trusted, and a document that only cites the case is not mistaken for it.
+  - A question naming a library case the corpus lacks is answered "insufficient evidence", with a notice naming the case.
+
+**Results:**
+- On the evaluation set (43 questions, 4 new misspelling or word-form questions), answerable questions answered by the extractive gate rose from 0.84 to 0.95. Out-of-scope questions are still 100% refused. Retrieval ranks are unchanged.
+- The two still refused (case-10, case-18) are long questions whose best passage covers 50% and 58% of their terms. Off-topic questions reach at most 40%, so a 0.5 threshold would separate them on this set, but the margin is thin. `min_term_coverage` stays at 0.6.
+- On JUD1:
+  - "what does p rama chandra case say?" is answered from `p_rama_chandra.pdf`; previously it quoted `sr_bommai.pdf`.
+  - Maneka Gandhi questions are flagged as not in this corpus.
+
+**Reference:** D20, D27, D31.
+
+---
+
+## D33 — Split deployment: static frontend on Vercel, backend on the owner's machine via a tunnel
+
+**Context:** The owner wants the UI on Vercel and the backend on their laptop, available only while it runs. Vercel cannot host the backend (D29/D30: torch, a persistent disk and background builds). Phase 8 served the UI same-origin, with no CORS and no access control.
+
+**Decision:**
+- **CORS:** `api.cors_allowed_origins` (env `CORS_ALLOWED_ORIGINS`) lists the exact origins whose pages may call the API. A wildcard is rejected and credentials are never allowed. CORS is the outermost middleware, so preflights are answered before the token check and 401 responses stay readable by the page. The empty default keeps the same-origin behaviour.
+- **Access token:** an optional shared token, `api.access_token`, set only through env `API_ACCESS_TOKEN` (at least 16 characters, hidden from `repr`). When set, every route except `/health`, `/` and `/static/*` requires `X-Access-Token`, compared in constant time. Failures return `401 {"error": "unauthorized"}`. This is not user accounts; it limits use to people who hold the token.
+- **UI:** `api.js` sends the token when one is saved (this tab by default, or this device if the user opts in) and calls an `onUnauthorized` hook on any 401, which opens a token dialog and reloads the data afterwards. It also sends `ngrok-skip-browser-warning` when the API address is an ngrok domain, because the free plan otherwise returns an HTML warning page.
+- **Build:** `vercel/build.mjs` (Node, no dependencies) copies `web/static` to `vercel-dist/`, writes `API_BASE` (required; https only, or http for localhost) into `<meta name="api-base">`, and adds a Content-Security-Policy `<meta>` whose `connect-src` allows only that origin. `vercel.json` runs it with no install step and sets nosniff, no-referrer and `X-Frame-Options: DENY`.
+- **Tests:** CORS and token behaviour (TestClient), plus a Playwright test that builds the frontend, serves it from a second origin against a real API with CORS and a token, and goes through the token dialog to the corpus list.
+
+**Consequences:**
+- The site works only while the owner's server and tunnel run. The tunnel address must stay fixed (an ngrok static domain or a named Cloudflare tunnel); changing it means updating `API_BASE` and redeploying.
+- The shared token is the only gate. Anyone who has it has full access, so it should be rotated if shared too widely.
+
+**Reference:** D29, D30; SRS §40.
+
+---
+
 ## Open decisions (not yet made — flagged for the next phase)
 
 - **Phase 2 labelling gaps (affect Phase 4 answers).** Some Constitution article headings are missed (Articles 4, 65, 174, 325, 368, 369, …: long or footnote-marked titles), and some opinion-author lines are missed ("BHAGWATI, J.-The …", "DR. D.Y. CHANDRACHUD, J."). Phase 4 reports a missing Article rather than inventing it, and hides author names by default (D21). Fixing Phase 2 requires re-chunking and an index rebuild.

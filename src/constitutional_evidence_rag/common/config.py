@@ -11,12 +11,13 @@ the phases that introduce them, not speculatively here.
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 from typing import Any, Literal
 
 import yaml
 from dotenv import load_dotenv
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from constitutional_evidence_rag.common.models import CURATED_CORPUS_ID, CorpusId
 
@@ -71,6 +72,33 @@ class CorpusSettings(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     default_corpus_id: CorpusId = CURATED_CORPUS_ID
+
+
+class ApiSettings(BaseModel):
+    """HTTP API exposure (D33). Defaults keep the Phase 7/8 behaviour: same-origin only, no token.
+
+    cors_allowed_origins: exact origins (e.g. "https://my-app.vercel.app") whose pages may call
+    the API from the browser, for a frontend hosted elsewhere. Never "*".
+    access_token: optional shared token. When set, every API route except /health requires the
+    header X-Access-Token. Set it in the environment (API_ACCESS_TOKEN), never in YAML."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    cors_allowed_origins: list[str] = Field(default_factory=list)
+    access_token: str | None = Field(default=None, min_length=16, repr=False)
+
+    @field_validator("cors_allowed_origins")
+    @classmethod
+    def _exact_origins(cls, origins: list[str]) -> list[str]:
+        cleaned = []
+        for origin in origins:
+            origin = origin.strip().rstrip("/")
+            if not origin:
+                continue
+            if origin == "*" or not re.fullmatch(r"https?://[A-Za-z0-9.-]+(:\d+)?", origin):
+                raise ValueError(f"CORS origin must be an exact scheme://host[:port], got {origin!r}")
+            cleaned.append(origin)
+        return cleaned
 
 
 class UploadSettings(BaseModel):
@@ -258,6 +286,7 @@ class Settings(BaseModel):
     evidence_validation: EvidenceValidationSettings = EvidenceValidationSettings()
     corpus: CorpusSettings = CorpusSettings()
     uploads: UploadSettings = UploadSettings()
+    api: ApiSettings = ApiSettings()
 
 
 def _apply_env_overrides(raw: dict[str, Any]) -> dict[str, Any]:
@@ -297,6 +326,11 @@ def _apply_env_overrides(raw: dict[str, Any]) -> dict[str, Any]:
                      ("UPLOAD_MAX_TOTAL_SIZE_MB", "max_total_size_mb"), ("UPLOAD_MAX_PAGES", "max_pages_per_document")):
         if os.environ.get(env):
             raw.setdefault("uploads", {})[key] = os.environ[env]
+    # D33: a frontend on another origin, and the optional shared access token (env only).
+    if os.environ.get("CORS_ALLOWED_ORIGINS"):
+        raw.setdefault("api", {})["cors_allowed_origins"] = os.environ["CORS_ALLOWED_ORIGINS"].split(",")
+    if os.environ.get("API_ACCESS_TOKEN"):
+        raw.setdefault("api", {})["access_token"] = os.environ["API_ACCESS_TOKEN"].strip()
 
     return raw
 

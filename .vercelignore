@@ -1,0 +1,8 @@
+# Vercel deploys only the static frontend (vercel/build.mjs); keep uploads small.
+.venv/
+data/
+indexes/
+models/
+tests/
+docs/screenshots/
+.pytest_cache/

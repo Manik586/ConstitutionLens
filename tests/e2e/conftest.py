@@ -48,9 +48,11 @@ def _free_port() -> int:
 
 
 class LiveServer:
-    def __init__(self, root: Path):
+    def __init__(self, root: Path, api=None):
         self.root = root
         self.settings = make_settings(root)
+        if api is not None:
+            self.settings = self.settings.model_copy(update={"api": api})
         self.service = CorpusService(self.settings, embedder_factory=embedder_factory)
         self.port = _free_port()
         self.url = f"http://127.0.0.1:{self.port}"

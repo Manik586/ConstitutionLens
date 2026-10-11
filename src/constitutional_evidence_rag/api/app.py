@@ -14,6 +14,10 @@
     GET  /                          ConstitutionLens web UI (Phase 8; D30) -> web/static/index.html
     GET  /static/...                UI assets (CSP, nosniff and no-referrer headers on / and /static only)
 
+Optional exposure settings (D33): `api.cors_allowed_origins` lets a frontend hosted elsewhere
+(e.g. Vercel) call the API from the browser; `api.access_token` (env API_ACCESS_TOKEN) makes
+every API route except /health require the header X-Access-Token.
+
 No authentication: deploy only where every user is trusted (SRS §40.3 `private` profile).
 Errors are always {"error": <code>, "message": <user-safe text>} — never tracebacks, server
 paths or keys; the original exception is logged server-side. When `generate` is true, retrieved
@@ -21,12 +25,14 @@ user-document text is sent to the configured LLM provider (see README).
 """
 from __future__ import annotations
 
+import hmac
 import mimetypes
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, File, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
@@ -61,6 +67,7 @@ UI_SECURITY_HEADERS = {
     "Referrer-Policy": "no-referrer",
 }
 QUERY_TOP_K_MAX = 20  # QueryRequest.top_k bound
+ACCESS_TOKEN_HEADER = "X-Access-Token"  # D33
 
 _STATUS = {InvalidCorpusIdError: 422, CorpusExistsError: 409, ReservedCorpusError: 409, CorpusNotFoundError: 404,
            CorpusBusyError: 409, CorpusBuildError: 422}
@@ -105,6 +112,29 @@ def create_app(settings: Settings | None = None, service: CorpusService | None =
         if path == "/" or path.startswith("/static/"):
             response.headers.update(UI_SECURITY_HEADERS)
         return response
+
+    token = settings.api.access_token
+    if token:
+        @app.middleware("http")
+        async def _require_token(request: Request, call_next):
+            path = request.url.path
+            open_path = path in ("/", "/health") or path.startswith("/static/")
+            if request.method == "OPTIONS" or open_path:
+                return await call_next(request)
+            given = request.headers.get(ACCESS_TOKEN_HEADER, "")
+            if not hmac.compare_digest(given.encode(), token.encode()):
+                return _error(401, "unauthorized", "This server requires an access token.")
+            return await call_next(request)
+
+    # Added last so it is the outermost layer: preflights are answered before the token check,
+    # and 401 responses still carry CORS headers the browser can read.
+    if settings.api.cors_allowed_origins:
+        app.add_middleware(
+            CORSMiddleware, allow_origins=settings.api.cors_allowed_origins, allow_credentials=False,
+            allow_methods=["GET", "POST", "DELETE"],
+            allow_headers=["Content-Type", "Accept", ACCESS_TOKEN_HEADER, "ngrok-skip-browser-warning"],
+            max_age=600,
+        )
 
     # ------------------------------------------------------------------ errors
 

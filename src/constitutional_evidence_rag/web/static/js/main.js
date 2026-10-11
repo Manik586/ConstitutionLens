@@ -2,7 +2,7 @@
 // HTTP in api.js, decorative motion in motion.js. The backend is always authoritative: after
 // every create / upload / build / delete the affected corpus is re-fetched from the API.
 
-import { api } from "./api.js";
+import { api, clearAccessToken, getAccessToken, onUnauthorized, setAccessToken } from "./api.js";
 import {
   POLL_MAX_FAILURES, buildQueryBody, isReserved, pollDelay, queryBlockReason, queryTimeoutMs, retryDelay,
   shouldKeepPolling, slugify, state, statusInfo,
@@ -501,22 +501,65 @@ ui.results.addEventListener("click", (e) => {
 
 // ------------------------------------------------------------------ boot
 
-async function boot() {
-  M.intro();
+// ------------------------------------------------------------------ access token (D33)
+// Only used when the server sets API_ACCESS_TOKEN: any 401 opens this dialog, and the app
+// reloads its data once a token is entered. The token is never shown or logged.
+
+const tokenUi = { dialog: $("tokenDialog"), input: $("tokenInput"), remember: $("tokenRemember"), error: $("tokenError") };
+let tokenPrompt = null;
+
+function askForToken(message) {
+  if (tokenPrompt) return tokenPrompt;
+  tokenPrompt = new Promise((resolve) => {
+    R.showAlert(tokenUi.error, message);
+    tokenUi.input.value = "";
+    tokenUi.dialog.returnValue = "";
+    tokenUi.dialog.addEventListener("close", () => {
+      const value = tokenUi.input.value.trim();
+      tokenUi.input.value = "";
+      tokenPrompt = null;
+      if (tokenUi.dialog.returnValue === "confirm" && value) {
+        setAccessToken(value, tokenUi.remember.checked);
+        resolve(true);
+      } else {
+        resolve(false);
+      }
+    }, { once: true });
+    tokenUi.dialog.showModal();
+    M.dialogIn(tokenUi.dialog);
+  });
+  return tokenPrompt;
+}
+
+onUnauthorized(() => {
+  const hadToken = Boolean(getAccessToken());
+  clearAccessToken();
+  askForToken(hadToken ? "That token was not accepted. Check it and try again." : "").then((entered) => {
+    if (entered) loadApp({ animate: false });
+  });
+});
+
+async function loadApp({ animate }) {
+  state.configError = "";
   try {
     state.config = await api.config();
   } catch (err) {
     state.config = null;
-    state.configError = `Could not load the server settings: ${err.message} Upload limits and LLM options are unavailable.`;
+    state.configError = err.status === 401 ? "" : `Could not load the server settings: ${err.message} Upload limits and LLM options are unavailable.`;
   }
   renderConfig();
-  const ok = await loadCorpora({ animate: true });
+  const ok = await loadCorpora({ animate });
   if (!ok) return;
   const last = recall();
   const fallback = state.config && state.config.default_corpus_id;
   const pick = [last, fallback].find((id) => id && state.corpora.some((c) => c.corpus_id === id))
     || (state.corpora[0] && state.corpora[0].corpus_id);
   if (pick) selectCorpus(pick);
+}
+
+function boot() {
+  M.intro();
+  loadApp({ animate: true });
 }
 
 boot();

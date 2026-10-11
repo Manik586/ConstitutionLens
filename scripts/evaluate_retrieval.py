@@ -98,14 +98,25 @@ def main(argv: list[str] | None = None) -> int:
                     for i, c in enumerate(pool[n_candidates:], start=len(reordered) + 1)]
             ev_rep.ranks[q.id] = evidence_rank(q, reordered + rest)
 
+    # Answer level: does the confidence gate answer real questions and refuse out-of-scope ones?
+    statuses = {q.id: pipe.answer(q.question).status.value for q in questions}
+    answerable_ids = [q.id for q in questions if q.answerable]
+    oos_ids = [q.id for q in questions if not q.answerable]
+    gate = {"answerable_answered": round(sum(statuses[i] in ("answered", "partial") for i in answerable_ids) / max(1, len(answerable_ids)), 3),
+            "out_of_scope_refused": round(sum(statuses[i] == "insufficient_evidence" for i in oos_ids) / max(1, len(oos_ids)), 3),
+            "not_answered": [i for i in answerable_ids if statuses[i] not in ("answered", "partial")],
+            "wrongly_answered": [i for i in oos_ids if statuses[i] != "insufficient_evidence"]}
+
     summary = {"generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "corpus_id": args.corpus_id,
                "questions": args.questions.name, "n_questions": len(questions),
                "embedding_model": settings.embedding.model_name, "rerank_candidates": n_candidates,
                "retrieval": [r.summary(questions) for r in reports.values()],
                "evidence": [r.summary(questions) for r in ev_reports.values()],
                "score_separation": {n: score_separation(r, questions) for n, r in reports.items() if n != "hybrid"},
-               "per_question": {q.id: {"question": q.question, **{n: r.ranks[q.id] for n, r in {**reports, **ev_reports}.items()}}
-                                for q in questions if q.answerable}}
+               "answer_gate": gate,
+               "per_question": {q.id: {"question": q.question, "answer_status": statuses[q.id],
+                                       **({n: r.ranks[q.id] for n, r in {**reports, **ev_reports}.items()} if q.answerable else {})}
+                                for q in questions}}
     args.out.mkdir(parents=True, exist_ok=True)
     out = args.out / f"retrieval_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
     out.write_text(json.dumps(summary, indent=2), encoding="utf-8")
@@ -124,6 +135,12 @@ def main(argv: list[str] | None = None) -> int:
     for name, sep in summary["score_separation"].items():
         if sep:
             print(f"  {name:32s} {sep['answerable']} vs {sep['out_of_scope']} -> {sep['out_of_scope_below_answerable_min']:.2f}")
+    print(f"\nanswer gate (extractive): answerable questions answered {gate['answerable_answered']:.2f}, "
+          f"out-of-scope refused {gate['out_of_scope_refused']:.2f}")
+    if gate["not_answered"]:
+        print("  not answered:", ", ".join(gate["not_answered"]))
+    if gate["wrongly_answered"]:
+        print("  answered although out of scope:", ", ".join(gate["wrongly_answered"]))
     print(f"\nreport: {out.relative_to(REPO) if out.is_relative_to(REPO) else out}")
     return 0
 

@@ -162,6 +162,23 @@
     </form>
   </dialog>
 
+  <dialog class="dialog" id="tokenDialog" aria-labelledby="tokenDialogTitle">
+    <form method="dialog" id="tokenForm" class="token-form">
+      <h2 id="tokenDialogTitle">Access token required</h2>
+      <p>This server is protected. Enter the access token its owner gave you.</p>
+      <label for="tokenInput">Access token</label>
+      <input id="tokenInput" type="password" autocomplete="off" spellcheck="false" required>
+      <span class="switch">
+        <input type="checkbox" id="tokenRemember">
+        <label for="tokenRemember">Remember on this device</label>
+      </span>
+      <p class="form-error" id="tokenError" role="alert" hidden></p>
+      <div class="row row--end">
+        <button type="submit" class="btn btn--primary" value="confirm" id="tokenSubmit">Continue</button>
+      </div>
+    </form>
+  </dialog>
+
   <script src="/static/vendor/gsap.min.js"></script>
   <script type="module" src="/static/js/main.js"></script>
 </body>

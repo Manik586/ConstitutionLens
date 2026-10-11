@@ -13,6 +13,7 @@ by corpus id and invalidated whenever that corpus changes.
 """
 from __future__ import annotations
 
+import json
 import os
 import threading
 from concurrent.futures import Future, ThreadPoolExecutor
@@ -33,7 +34,8 @@ from constitutional_evidence_rag.corpora.uploads import FileResult, UploadStore
 from constitutional_evidence_rag.generation.llm import LLMConfigurationError, make_llm_client
 from constitutional_evidence_rag.generation.pipeline import AnswerPipeline, CorpusIsolationError, answering_settings, make_generator
 from constitutional_evidence_rag.ingestion.metadata import DocumentSpec, load_registry
-from constitutional_evidence_rag.ingestion.pipeline import METADATA_FILENAME, ingest_documents
+from constitutional_evidence_rag.ingestion.pipeline import DOCUMENTS_FILENAME, METADATA_FILENAME, ingest_documents
+from constitutional_evidence_rag.query.understanding import CaseIndex
 from constitutional_evidence_rag.retrieval.dense import make_embedder
 from constitutional_evidence_rag.retrieval.hybrid import Retriever
 from constitutional_evidence_rag.retrieval.store import QueryError
@@ -238,7 +240,9 @@ class CorpusService:
         settings = self._query_settings(top_k, generate)
         generator = make_generator(settings, self._llm_client_factory(settings.llm) if generate else None)
         retriever, documents = self._resources(corpus)
-        pipeline = AnswerPipeline(retriever, documents, settings, generator, embedder=self.embedder(), corpus_id=corpus.corpus_id)
+        pipeline = AnswerPipeline(retriever, documents, settings, generator, embedder=self.embedder(), corpus_id=corpus.corpus_id,
+                                  reference_cases=None if corpus.reserved else self._library_cases(),
+                                  title_texts=None if corpus.reserved else self._title_texts(corpus))
         answer = pipeline.answer(question)
         if not corpus.reserved:
             answer = answer.model_copy(update={"notices": [*answer.notices, USER_CORPUS_NOTICE]})
@@ -252,6 +256,41 @@ class CorpusService:
             evidence = evidence.model_copy(update={"top_k": top_k})
             generation = generation.model_copy(update={"context_max_items": top_k})
         return s.model_copy(update={"generation": generation, "evidence": evidence})
+
+    def _library_cases(self) -> CaseIndex | None:
+        """The curated library's judgments (titles only), read from its registry. Used so a user
+        corpus can name the cases it holds and flag named cases it lacks; no curated text is used."""
+        metadata = self.registry.processed_dir(self.registry.curated_id) / METADATA_FILENAME
+        if not metadata.exists():
+            return None
+        stamp = metadata.stat().st_mtime
+        cached = getattr(self, "_library_cache", None)
+        if cached is None or cached[0] != stamp:
+            judgments = [(m.document_id, m.title) for m in load_registry(metadata)
+                         if m.replaced_by is None and m.source_type is SourceType.JUDGMENT]
+            self._library_cache = (stamp, CaseIndex(judgments))
+        return self._library_cache[1]
+
+    def _title_texts(self, corpus: Corpus) -> dict[str, str]:
+        """document_id -> start of the first page's text (title area), from documents.jsonl.
+        Cached per corpus version; only the first 1000 characters are kept."""
+        version = corpus.updated_at.isoformat()
+        cache = self.__dict__.setdefault("_title_cache", {})
+        if cache.get(corpus.corpus_id, (None,))[0] == version:
+            return cache[corpus.corpus_id][1]
+        texts: dict[str, str] = {}
+        path = self.registry.processed_dir(corpus.corpus_id) / DOCUMENTS_FILENAME
+        if path.exists():
+            with path.open(encoding="utf-8") as f:
+                for line in f:
+                    if not line.strip():
+                        continue
+                    row = json.loads(line)
+                    pages = row.get("pages") or []
+                    if pages:
+                        texts[row["document_id"]] = str(pages[0].get("text", ""))[:1000]
+        cache[corpus.corpus_id] = (version, texts)
+        return texts
 
     def _resources(self, corpus: Corpus) -> tuple[Retriever, dict]:
         version = corpus.updated_at.isoformat()

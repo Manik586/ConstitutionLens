@@ -19,3 +19,7 @@ models/
 
 # Logs
 *.log
+
+# Vercel build output (vercel/build.mjs)
+vercel-dist/
+.vercel/

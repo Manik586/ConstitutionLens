@@ -6,6 +6,32 @@
 const metaBase = document.querySelector('meta[name="api-base"]');
 export const API_BASE = (metaBase && metaBase.content ? metaBase.content : "").replace(/\/$/, "");
 
+// ngrok's free plan answers browser requests with a warning page unless this header is sent.
+const NGROK = /\.ngrok(-free)?\.(app|dev|io)$/i.test((() => { try { return new URL(API_BASE).hostname; } catch { return ""; } })());
+
+// Optional shared access token (D33). Kept for this tab by default; on this device only if the
+// user asks. Wrapped in try/catch: storage can be unavailable.
+const TOKEN_KEY = "constitutionlens.accessToken";
+export function getAccessToken() {
+  try { return sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY) || ""; } catch { return ""; }
+}
+export function setAccessToken(token, remember) {
+  try {
+    sessionStorage.setItem(TOKEN_KEY, token);
+    if (remember) localStorage.setItem(TOKEN_KEY, token); else localStorage.removeItem(TOKEN_KEY);
+  } catch { /* storage unavailable: the token lasts until the page is reloaded */ }
+  memoryToken = token;
+}
+export function clearAccessToken() {
+  memoryToken = "";
+  try { sessionStorage.removeItem(TOKEN_KEY); localStorage.removeItem(TOKEN_KEY); } catch { /* ignore */ }
+}
+let memoryToken = "";
+
+// Called once per 401 so the UI can ask for a token; requests still fail with the 401 error.
+let unauthorizedHandler = null;
+export function onUnauthorized(handler) { unauthorizedHandler = handler; }
+
 export class ApiError extends Error {
   constructor(message, { status = 0, code = null, network = false, aborted = false, timeout = false, body = null } = {}) {
     super(message);
@@ -20,6 +46,7 @@ export class ApiError extends Error {
 }
 
 function genericMessage(status) {
+  if (status === 401) return "This server requires an access token.";
   if (status === 404) return "Not found. It may have been deleted; refresh the corpus list.";
   if (status === 409) return "That action conflicts with the corpus's current state.";
   if (status === 413) return "The upload is too large.";
@@ -49,6 +76,9 @@ function combinedSignal(signal, timeoutMs) {
 
 async function request(method, path, { json, form, signal, timeoutMs, acceptBodyOnError = false } = {}) {
   const init = { method, headers: { Accept: "application/json" } };
+  const token = memoryToken || getAccessToken();
+  if (token) init.headers["X-Access-Token"] = token;
+  if (NGROK) init.headers["ngrok-skip-browser-warning"] = "1";
   if (json !== undefined) {
     init.headers["Content-Type"] = "application/json";
     init.body = JSON.stringify(json);
@@ -82,6 +112,7 @@ async function request(method, path, { json, form, signal, timeoutMs, acceptBody
 
   if (response.ok) return { status: response.status, data: body };
   if (acceptBodyOnError && body && typeof body === "object" && !("error" in body)) return { status: response.status, data: body };
+  if (response.status === 401 && unauthorizedHandler) unauthorizedHandler();
   const message = body && typeof body.message === "string" && body.message ? body.message : genericMessage(response.status);
   throw new ApiError(message, { status: response.status, code: body && typeof body.error === "string" ? body.error : null, body });
 }

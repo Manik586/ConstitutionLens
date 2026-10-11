@@ -11,9 +11,11 @@
 """
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from constitutional_evidence_rag.common.answer import Answer
+from constitutional_evidence_rag.common.chunks import Chunk
 from constitutional_evidence_rag.common.config import Settings
 from constitutional_evidence_rag.common.evidence import EvidenceSet
 from constitutional_evidence_rag.common.models import DocumentMetadata, SourceType
@@ -53,10 +55,40 @@ def make_generator(settings: Settings, llm_client: LLMClient | None = None) -> A
     return ExtractiveAnswerGenerator(settings.generation)
 
 
+def identify_known_cases(chunks: list[Chunk], document_ids: set[str], reference: CaseIndex,
+                         title_texts: dict[str, str] | None = None, title_chars: int = 800) -> list[tuple[str, str]]:
+    """(document_id, library title) for uploaded documents that are a known judgment: every
+    distinctive name token of the library title appears in the document's first
+    `title_chars` characters (its title area). `title_texts` (document_id -> first page text,
+    from the parsed pages) is preferred, because chunking can drop short title lines; the
+    first chunk is the fallback. Filenames are not trusted for this, and a document that
+    merely cites the case later on is not mistaken for it."""
+    title_texts = title_texts or {}
+    first: dict[str, Chunk] = {}
+    for c in chunks:
+        if c.document_id in document_ids and (c.document_id not in first or c.chunk_index < first[c.document_id].chunk_index):
+            first[c.document_id] = c
+    openings: dict[str, set[str]] = {}
+    for document_id in document_ids:
+        text = title_texts.get(document_id) or (first[document_id].text if document_id in first else "")
+        openings[document_id] = set(re.findall(r"[a-z]+", text[:title_chars].lower()))
+    found = []
+    for ref_id, tokens in reference.distinctive.items():
+        if not tokens:
+            continue
+        for document_id, words in openings.items():
+            if tokens <= words:
+                found.append((document_id, reference.titles[ref_id]))
+    return found
+
+
 class AnswerPipeline:
     def __init__(self, retriever: Retriever, registry: dict[tuple[str, int], DocumentMetadata], settings: Settings,
                  generator: AnswerGenerator | None = None, validator: SupportValidator | None = None,
-                 embedder: Embedder | None = None, corpus_id: str | None = None):
+                 embedder: Embedder | None = None, corpus_id: str | None = None,
+                 reference_cases: CaseIndex | None = None, title_texts: dict[str, str] | None = None):
+        """reference_cases: the curated library's judgments, so a user corpus can recognise the
+        cases it contains (uploaded files are titled by filename) and flag named cases it lacks."""
         self.retriever, self.registry, self.settings = retriever, registry, settings
         self.corpus_id = corpus_id  # Phase 7: when set, every evidence item must come from this corpus
         self.generator = generator or make_generator(settings)
@@ -65,7 +97,12 @@ class AnswerPipeline:
         self.validator = validator if validator is not None else (
             SupportValidator(ev, embedder_factory=(lambda: embedder or make_embedder(settings.embedding))) if ev.enabled else None)
         current = [m for m in registry.values() if m.replaced_by is None and m.source_type is SourceType.JUDGMENT]
-        self.cases = CaseIndex((m.document_id, m.title) for m in current)
+        known = [(m.document_id, m.title) for m in current]
+        uploaded = {m.document_id for m in registry.values() if m.replaced_by is None and m.source_type is SourceType.USER_DOCUMENT}
+        if reference_cases is not None and uploaded:
+            known += identify_known_cases(retriever.chunks, uploaded, reference_cases, title_texts)
+        self.cases = CaseIndex(known)
+        self.reference_cases = reference_cases
 
     @classmethod
     def load(cls, *, processed_root: Path, indexes_root: Path, corpus_id: str, settings: Settings,
@@ -83,10 +120,10 @@ class AnswerPipeline:
         return cls(retriever, registry, settings, generator, embedder=embedder, corpus_id=corpus_id)
 
     def analyze(self, query: str) -> QueryAnalysis:
-        return analyze_query(validate_query(query), self.cases)
+        return analyze_query(validate_query(query), self.cases, self.reference_cases)
 
     def select(self, analysis: QueryAnalysis) -> EvidenceSet:
-        candidates = self.retriever.hybrid(analysis.query, self.settings.evidence.candidate_pool)
+        candidates = self.retriever.hybrid(analysis.search_query or analysis.query, self.settings.evidence.candidate_pool)
         evidence = select_evidence(analysis, candidates, self.retriever.chunks, self.registry, self.settings.evidence)
         if self.corpus_id is not None:
             foreign = {i.chunk.corpus_id for i in evidence.items} - {self.corpus_id}

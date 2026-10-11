@@ -88,7 +88,7 @@ def test_load_questions_validates(tmp_path):
 def test_the_shipped_question_set_is_valid():
     qs = load_questions(REPO / "data" / "eval" / "retrieval_v1.jsonl")
     kinds = {k: sum(q.kind == k for q in qs) for k in ("case", "provision", "out_of_scope")}
-    assert kinds == {"case": 20, "provision": 13, "out_of_scope": 6}
+    assert kinds == {"case": 24, "provision": 13, "out_of_scope": 6}
 
 
 class FakeScorer:
